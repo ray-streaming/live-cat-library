@@ -24,7 +24,7 @@ import type { Phase } from "live-cat/types/launcher-base";
 import type { ErrorState } from "live-cat/types/launcher-base";
 import { StatusMap } from "./utils/status-code";
 import type { Options as loadingOptions } from "./loading/loading";
-import { AutoRetry } from "./utils/auto-retry";
+import { AutoRetry, StorageType } from "./utils/auto-retry";
 interface LoadingError {
   code: number | string;
   type: "app" | "task" | "connection" | "reConnection";
@@ -44,6 +44,7 @@ interface ExtendUIOptions {
   onTaskId: (taskId: number) => void;
   onShowUserList: (showCastScreenUsers: boolean) => void;
   onRunningOptions: (opt: OnRunningOptions) => void;
+  terminalMultiOpen: boolean;
 }
 
 type UIOptions = Options & loadingOptions & ExtendUIOptions;
@@ -60,6 +61,7 @@ export class LauncherUI {
     onTaskId: () => {},
     onShowUserList: () => {},
     onRunningOptions: () => {},
+    terminalMultiOpen: false,
     ...LoadingCompoent.defaultOptions,
   };
   loading: LoadingCompoent;
@@ -93,9 +95,23 @@ export class LauncherUI {
 
     this.autoRetry = new AutoRetry(this.baseOptions.appKey!);
 
-    //判断有重连重连 - 仅普通连接
-
-    this.handlerStart();
+    this.client.getAppConfig(this.baseOptions).then(async (res) => {
+      if (!res.result) {
+        this.handlerError({
+          code: res.code,
+          type: "app",
+          reason: StatusMap.get(res.code as number)![1] ?? res.message,
+        });
+        throw res.code;
+      }
+      const { terminalMultiOpen } = res.data;
+      AutoRetry.StorageType =
+        this.options?.terminalMultiOpen ?? terminalMultiOpen
+          ? StorageType.SessionStorage
+          : StorageType.LocalStorage;
+      //判断有重连重连 - 仅普通连接
+      this.handlerStart();
+    });
   }
   private handlerNetworkChange = () => {
     if ("connection" in navigator) {
@@ -245,7 +261,7 @@ export class LauncherUI {
     if (status !== Status.Scheduling) {
       return res.data;
     }
-    await sleep(500);
+    await sleep(200);
     return await this.waitForRunning(taskId);
   };
 
@@ -362,7 +378,8 @@ export class LauncherUI {
     if (
       this.isReconnectEnabled &&
       !this.autoRetry.isEmpty &&
-      err.type !== "connection"
+      err.type !== "connection"&&
+      err.type !== "task"
     ) {
       //在网络不稳定/断网的情况下，需要对重连进行适配
       this.offline = true; //设定为断网
@@ -468,7 +485,7 @@ export class LauncherUI {
               this.handlerError({
                 code: res.code,
                 type: "app",
-                reason: StatusMap.get(res.code)![1] ?? res.message,
+                reason: StatusMap.get(res.code as number)![1] ?? res.message,
               });
               throw res.code;
             }
@@ -478,7 +495,6 @@ export class LauncherUI {
             this.handlerMultipleOptions(data);
             const { taskId } = this.autoRetry.getRetryInfo()!;
             const { isReconnectEnabled } = data;
-
             if (isReconnectEnabled) {
               this.autoRetry.initializeRetryInfo(taskId);
             }
@@ -496,7 +512,7 @@ export class LauncherUI {
               this.handlerError({
                 code: res.code,
                 type: "app",
-                reason: StatusMap.get(res.code)![1] ?? res.message,
+                reason: StatusMap.get(res.code as number)![1] ?? res.message,
               });
               throw res.code;
             }
@@ -530,7 +546,7 @@ export class LauncherUI {
         return this.waitForRunning(taskId);
       })
         .then((res) => this.handlerStatusSwitch(res))
-        .catch((res) => {
+        .catch(() => {
           //只有重连以及有命中缓存才会触发 offline 为 true
           if (this.offline) {
             //断网了

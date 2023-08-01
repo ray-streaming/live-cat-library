@@ -26,7 +26,7 @@ function stringifyQuery(query: any) {
 export class Client {
   constructor(private address: string) {}
   async statusPrivate(params: {
-    token: string;
+    token?: string;
     runningId: number;
     serverIp: string;
   }): Promise<StatusResponsePrivate> {
@@ -184,6 +184,14 @@ export class Client {
     return fetch(`${this.address}/app/playerUrl`, {
       method: "POST",
       body: JSON.stringify(currentParams),
+      headers: { "Content-Type": "application/json" },
+    }).then((response) => response.json());
+  }
+
+  async getStartConfig(
+    appKey: string
+  ): Promise<CommonResponse<PrivateStartInfo>> {
+    return fetch(`${this.address}/app/start/config?appKey=${appKey}`, {
       headers: { "Content-Type": "application/json" },
     }).then((response) => response.json());
   }

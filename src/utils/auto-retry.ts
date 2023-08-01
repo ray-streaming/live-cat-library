@@ -1,28 +1,42 @@
+export enum StorageType {
+  LocalStorage,
+  SessionStorage,
+}
+
 export class AutoRetry {
   static MaxCount = 5;
   static Power = 3; //3
+  static StorageType = StorageType.LocalStorage;
   private timer?: number;
-  constructor(private readonly appKey: string) {}
+  constructor(
+    private readonly appKey: string,
+    // private readonly storageType: StorageType = StorageType.LocalStorage
+  ) {}
+  get storage() {
+    return AutoRetry.StorageType === StorageType.LocalStorage
+      ? window.localStorage
+      : window.sessionStorage;
+  }
   get isOverMaxCount() {
     return this.getRetryInfo()?.count! > AutoRetry.MaxCount;
   }
   get isEmpty() {
-    return !window.localStorage.getItem(this.appKey);
+    return !this.storage.getItem(this.appKey);
   }
   setupCount(count: number) {
     const res = this.getRetryInfo();
     if (res) {
       const { appKey, taskId } = res;
-      window.localStorage.setItem(appKey, `${this.appKey}-${count}-${taskId}`);
+      this.storage.setItem(appKey, `${this.appKey}-${count}-${taskId}`);
       return true;
     }
     return false;
   }
   clearRetryInfo() {
-    if (!this.isEmpty) window.localStorage.removeItem(this.appKey);
+    if (!this.isEmpty) this.storage.removeItem(this.appKey);
   }
   initializeRetryInfo(taskId: number) {
-    window.localStorage.setItem(this.appKey, `${this.appKey}-1-${taskId}`);
+    this.storage.setItem(this.appKey, `${this.appKey}-1-${taskId}`);
   }
   increaseRetryCount(countFlag: number = 1) {
     const res = this.getRetryInfo();
@@ -31,17 +45,14 @@ export class AutoRetry {
       if (count > AutoRetry.MaxCount) {
         return false;
       }
-      window.localStorage.setItem(
-        appKey,
-        `${appKey}-${count + countFlag}-${taskId}`
-      );
+      this.storage.setItem(appKey, `${appKey}-${count + countFlag}-${taskId}`);
       return true;
     }
     return false;
   }
   getRetryInfo() {
     if (!this.isEmpty) {
-      const [appKey, count, taskId] = window.localStorage
+      const [appKey, count, taskId] = this.storage
         .getItem(this.appKey)!
         .split("-");
       return { appKey, count: +count, taskId: +taskId };

@@ -28,10 +28,12 @@ export interface PrivateStartInfo {
   userList: boolean; //是否显示用户列表
   openMultiTouch: boolean; //多点触控
   supportTransfer: boolean; //投屏转移控制权
+  enabledReconnect: boolean; //断线重连
+  terminalMultiOpen: boolean; //支持多开重连
 }
 
 export interface CommonResponse<T = any> {
-  code: number;
+  code: number | string;
   data: T;
   message: string;
   result: boolean;
@@ -89,6 +91,7 @@ export interface VirtualGlobalType {
   resolutionRatio: string;
   buttonSize: ButtonSizeType;
   showButton: boolean;
+  showAlias: boolean;
   landscape: VirtualDataType[];
   portrait: VirtualDataType[];
 }
@@ -131,6 +134,7 @@ export interface ExtendOptionType {
   loadingImage?: string | HTMLImageElement;
   toolBarLogoImage?: string | HTMLImageElement;
   loadingBarImage?: string | HTMLImageElement;
+  terminalMultiOpen?: boolean;
 }
 
 export type Option = { baseOptions: BaseOptionsType } & {
@@ -185,6 +189,7 @@ export type InitializeConfigType = {
   agoraServiceVerify?: string;
   isFullScreen: boolean; //是否自动全屏
   isReconnectEnabled: boolean; //是否自动重连
+  terminalMultiOpen: boolean;
 };
 
 /**
