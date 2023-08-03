@@ -27,6 +27,13 @@ export function isTouch() {
     matchMedia("(pointer:coarse)").matches
   );
 }
+export function isAndroid() {
+  return (
+    navigator.userAgent.indexOf('Android') > -1 ||
+    navigator.userAgent.indexOf('Adr') > -1 ||
+    (('ontouchstart' in document || matchMedia('(pointer:coarse)').matches) && !isIOS())
+  )
+}
 export function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -70,4 +77,28 @@ export const handlerSendAgoraVerfy = async (
       }
       return result;
     });
+};
+
+export enum RateLevel {
+  SD,
+  HD,
+  FHD,
+  UHD4K,
+}
+
+export type RateMapType = {
+  label: string;
+  value: number;
+};
+
+export const rateMapField = new Map<RateLevel, RateMapType>([
+  [RateLevel.SD, { label: "流畅", value: 1500 }],
+  [RateLevel.HD, { label: "高清", value: 4000 }],
+  [RateLevel.FHD, { label: "超清", value: 8000 }],
+  [RateLevel.UHD4K, { label: "蓝光", value: 15000 }],
+]);
+
+export const handleNormalizeBirate = (defaultBitrate: number) => {
+  const rateLevel = rateMapField.get(defaultBitrate);
+  return rateLevel?.value ?? rateMapField.get(RateLevel.HD)!.value;
 };

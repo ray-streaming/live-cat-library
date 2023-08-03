@@ -30,7 +30,7 @@ export class PrivateReport {
         bitrate,
         packetLossRate,
         rtt: latency,
-        frames,
+        frames: frames.toFixed(2),
         jitterBufferDelay: averageJitterBufferDelay,
       },
     };

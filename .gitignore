@@ -21,3 +21,5 @@ build
 typedoc/*
 !.gitkeep
 target.tar
+
+example/live-cat-library-debug-page/public/*.js

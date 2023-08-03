@@ -11,7 +11,14 @@ import type {
 import { LoadingCompoent } from "./loading/loading";
 import type { OnChange } from "./loading/loading";
 
-import { isIOS, isWeiXin, sleep, takeScreenshotUrl } from "./utils";
+import {
+  handleNormalizeBirate,
+  isAndroid,
+  isIOS,
+  isWeiXin,
+  sleep,
+  takeScreenshotUrl,
+} from "./utils";
 import { autoLoadingVideoHandler, autoLoadingVideo } from "./store";
 import { ErrorStateMap } from "./utils/error-profile";
 import type { Phase } from "live-cat/types/launcher-base";
@@ -363,6 +370,9 @@ export class LauncherPrivateUI {
     document.title = appName;
     this.extendUIOptions.onShowUserList(userList);
 
+    const bitrate = handleNormalizeBirate(
+      this.options?.rateLevel ?? defaultBitrate
+    );
     this.diffServerAndDiyOptions = {
       ...LauncherBase.defaultOptions,
       ...this.options,
@@ -373,6 +383,9 @@ export class LauncherPrivateUI {
         this.options?.keyboardMappingConfig ?? keyboardMappingConfig!,
       inputHoverButton: this.options?.inputHoverButton ?? inputDisplayType!,
       rateLevel: this.options?.rateLevel ?? defaultBitrate,
+      minBitrate: this.options?.minBitrate ?? bitrate,
+      maxBitrate: this.options?.maxBitrate ?? bitrate,
+      startBitrate: this.options?.startBitrate ?? bitrate,
     };
   }
 
@@ -438,9 +451,10 @@ export class LauncherPrivateUI {
           coturns,
           signaling,
         });
-        this.token = token
+        this.token = token;
         const isAutoLoadingVideo =
           this.options?.autoLoadingVideo ?? !(isWeiXin() && isIOS());
+
         const options = {
           ...this.diffServerAndDiyOptions,
           autoLoadingVideo: isAutoLoadingVideo,
@@ -526,8 +540,9 @@ export class LauncherPrivateUI {
     if (
       this.enabledReconnect &&
       !this.autoRetry.isEmpty &&
-      err.type !== "connection" &&
-      err.type !== "task"//Note：重连判断：私有云比公有云多一项判断
+      (err.type !== "connection" ||
+        (err.type === "connection" && isAndroid())) && //Todo : public cloud to do 
+      err.type !== "task" 
     ) {
       //在网络不稳定/断网的情况下，需要对重连进行适配
       this.offline = true; //设定为断网

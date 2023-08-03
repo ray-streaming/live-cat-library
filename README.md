@@ -22,7 +22,7 @@
 
 # Technologies
 
-- live-cat v1.1.3
+- live-cat v1.1.5
 - Svelte v3.57.0
 - Rollup v2.78.0
 - Typescript v4.9.5
@@ -144,7 +144,7 @@ launcher?.launcherBase?.closeMicrophone();
 ```typescript
 //Camera
 const baseOptionsType = {
-  address: "https://app.3dcat.live",
+  address: "xxxx",
   appKey: "xxxx",
   startType: 1,
   enableVirtualCamera: true,

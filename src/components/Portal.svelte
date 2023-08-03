@@ -32,10 +32,10 @@
     -moz-osx-font-smoothing: grayscale;
     width: 100%;
     height: 100%;
-    z-index: 99999;
+    /* z-index: 99999; */
     background-color: black;
-    position: fixed;
+    /* position: fixed;
     left: 0;
-    top: 0;
+    top: 0; */
   }
 </style>
