@@ -13,6 +13,7 @@ import type { OnChange } from "./loading/loading";
 
 import {
   handlerSendAgoraVerfy,
+  isAndroid,
   isIOS,
   isWeiXin,
   sleep,
@@ -219,6 +220,9 @@ export class LauncherUI {
       keyboardMappingConfig:
         this.options?.keyboardMappingConfig ?? keyboardMappingConfig!,
       inputHoverButton: this.options?.inputHoverButton ?? inputHoverButton!,
+
+      disablePointerManager: this.options?.disablePointerManager ?? true,
+      disablePointerLock: this.options?.disablePointerLock ?? true,
     };
 
     this.loading.loadingCompoent.loadingImage =
@@ -378,7 +382,8 @@ export class LauncherUI {
     if (
       this.isReconnectEnabled &&
       !this.autoRetry.isEmpty &&
-      err.type !== "connection"&&
+      (err.type !== "connection" ||
+        (err.type === "connection" && isAndroid())) &&
       err.type !== "task"
     ) {
       //在网络不稳定/断网的情况下，需要对重连进行适配

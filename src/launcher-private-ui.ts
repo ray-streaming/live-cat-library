@@ -386,6 +386,8 @@ export class LauncherPrivateUI {
       minBitrate: this.options?.minBitrate ?? bitrate,
       maxBitrate: this.options?.maxBitrate ?? bitrate,
       startBitrate: this.options?.startBitrate ?? bitrate,
+      disablePointerManager: this.options?.disablePointerManager ?? true,
+      disablePointerLock: this.options?.disablePointerLock ?? true,
     };
   }
 
