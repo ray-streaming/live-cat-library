@@ -1,3 +1,4 @@
+import type { ExtendBaseOptions } from "../launcher-private-ui";
 import { iceParse, isTouch } from "../utils";
 import type {
   StatusResponse,
@@ -178,7 +179,7 @@ export class Client {
   }
 
   async getPlayerUrlPrivate(
-    params: BaseOptionsType
+    params: ExtendBaseOptions
   ): Promise<CommonResponse<PrivateStartInfo>> {
     const { address, ...currentParams } = params;
     return fetch(`${this.address}/app/playerUrl`, {

@@ -1,6 +1,6 @@
 {
   "name": "live-cat-library",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "This is a component library for [3DCAT](https://www.3dcat.live/)",
   "types": "./src",
   "main": "./live-cat-library.cjs.js",
@@ -15,6 +15,7 @@
     "dev": "rollup -c  rollup.config.js -w --environment NODE_ENV:development"
   },
   "keywords": [
+    "WebRTC",
     "3DCAT",
     "live-cat",
     "live-cat-library"
@@ -48,11 +49,11 @@
   "dependencies": {
     "countup.js": "^2.6.0",
     "js-base64": "^3.7.5",
-    "live-cat": "^1.1.5"
+    "live-cat": "^1.1.6"
   },
   "peerDependencies": {
     "countup.js": "^2.6.0",
     "js-base64": "^3.7.5",
-    "live-cat": "^1.1.5"
+    "live-cat": "^1.1.6"
   }
 }

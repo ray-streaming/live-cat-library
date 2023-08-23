@@ -26,6 +26,7 @@ import type { ErrorState } from "live-cat/types/launcher-base";
 import { StatusMap } from "./utils/status-code";
 import type { Options as loadingOptions } from "./loading/loading";
 import { AutoRetry, StorageType } from "./utils/auto-retry";
+import { FastTouchSideEffect } from "./utils/helper";
 interface LoadingError {
   code: number | string;
   type: "app" | "task" | "connection" | "reConnection";
@@ -56,12 +57,12 @@ interface StartClient {
 }
 export class LauncherUI {
   static defaultExtendOptions: ExtendUIOptions = {
-    onChange: () => {},
-    onQueue: () => {},
-    onLoadingError: () => {},
-    onTaskId: () => {},
-    onShowUserList: () => {},
-    onRunningOptions: () => {},
+    onChange: () => { },
+    onQueue: () => { },
+    onLoadingError: () => { },
+    onTaskId: () => { },
+    onShowUserList: () => { },
+    onRunningOptions: () => { },
     terminalMultiOpen: false,
     ...LoadingCompoent.defaultOptions,
   };
@@ -315,6 +316,15 @@ export class LauncherUI {
               this.autoRetry.setupCount(1);
             }
             this.loading.destroy();
+            
+            //多点触控情况下，快速触摸/抬起将模拟发送鼠标按下
+            if (this.diffServerAndDiyOptions?.openMultiTouch) {
+              new FastTouchSideEffect(this.launcherBase?.player.video!, () => {
+                FastTouchSideEffect.sendMouseLeftButton(
+                  this.launcherBase?.connection!
+                );
+              });
+            }
           },
           onError: (reason: ErrorState) => {
             this.options?.onError && this.options?.onError(reason);

@@ -27,6 +27,8 @@ import { StatusMap } from "./utils/status-code-private";
 import type { Options as loadingOptions } from "./loading/loading";
 import { AutoRetry, StorageType } from "./utils/auto-retry";
 import { PrivateReport } from "./utils/private-report";
+import { FastTouchSideEffect } from "./utils/helper";
+import { LiveStart, LiveStop, LiveURL } from "./utils/extend-adapter";
 
 enum VirtualControlDisplayType {
   HideAll = 0,
@@ -68,16 +70,17 @@ interface ExtendUIOptions {
   terminalMultiOpen: boolean;
 }
 
+export type ExtendBaseOptions = BaseOptionsType & { onlyRecvInstruction?: boolean }
+
 type UIOptions = Options & ExtendUIOptions & loadingOptions;
 
 export class LauncherPrivateUI {
   static defaultExtendOptions: ExtendUIOptions = {
-    onChange: () => {},
-    // onQueue: () => {},
-    onLoadingError: () => {},
-    onRunningId: () => {},
-    onShowUserList: () => {},
-    onRunningOptions: () => {},
+    onChange: () => { },
+    onLoadingError: () => { },
+    onRunningId: () => { },
+    onShowUserList: () => { },
+    onRunningOptions: () => { },
     terminalMultiOpen: false,
     ...LoadingCompoent.defaultOptions,
   };
@@ -96,7 +99,7 @@ export class LauncherPrivateUI {
   private privateReport?: PrivateReport;
   private token?: string;
   constructor(
-    protected baseOptions: BaseOptionsType,
+    protected baseOptions: ExtendBaseOptions,
     protected hostElement: HTMLElement,
     protected options?: Partial<UIOptions>
   ) {
@@ -224,6 +227,7 @@ export class LauncherPrivateUI {
         this.startClient = this.client
           .getPlayerUrlPrivate({
             ...this.baseOptions,
+            onlyRecvInstruction: this.baseOptions.onlyRecvInstruction ?? false,
             serverIp: this.location.hostname,
           })
           .then(async (res) => {
@@ -494,6 +498,15 @@ export class LauncherPrivateUI {
               this.token!,
               this.launcherBase!
             );
+
+            //多点触控情况下，快速触摸/抬起将模拟发送鼠标按下
+            if (this.diffServerAndDiyOptions?.openMultiTouch) {
+              new FastTouchSideEffect(this.launcherBase?.player.video!, () => {
+                FastTouchSideEffect.sendMouseLeftButton(
+                  this.launcherBase?.connection!
+                );
+              });
+            }
           },
           onError: (reason: ErrorState) => {
             this.options?.onError && this.options?.onError(reason);
@@ -543,8 +556,8 @@ export class LauncherPrivateUI {
       this.enabledReconnect &&
       !this.autoRetry.isEmpty &&
       (err.type !== "connection" ||
-        (err.type === "connection" && isAndroid())) && //Todo : public cloud to do 
-      err.type !== "task" 
+        (err.type === "connection" && isAndroid())) && //Todo : public cloud to do
+      err.type !== "task"
     ) {
       //在网络不稳定/断网的情况下，需要对重连进行适配
       this.offline = true; //设定为断网
@@ -598,6 +611,16 @@ export class LauncherPrivateUI {
       type: err.type,
       reason: err.reason,
     });
+  }
+
+  liveStart(url?: string) {
+    this.launcherBase?.connection.send(new LiveStart(url ?? '').dumps(), true)
+  }
+  liveStop() {
+    this.launcherBase?.connection.send(new LiveStop().dumps(), true)
+  }
+  liveUrl(url: string) {
+    this.launcherBase?.connection.send(new LiveURL(url).dumps(), true)
   }
 
   destory(
