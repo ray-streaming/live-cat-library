@@ -1,16 +1,15 @@
 // import { LoadingCompoent } from "live-cat-library";
-import { LauncherUI } from "live-cat-library";
+import { LauncherPrivateUI } from "live-cat-library";
 
 const hostElement = document.querySelector("body");
 document.querySelector("body").style.width = "100%";
 document.querySelector("body").style.height = "100%";
 
 function bootstrap() {
-  let launcherUI = new LauncherUI(
+  let launcherPrivateUI = new LauncherPrivateUI(
     {
-      address: "https://app-pre.3dcat.live:14431",
-      appKey: "WEXLks5VQsdfFKP5",
-      startType: 1,
+      address: "http://172.16.21.240:8088",
+      appKey: "zrGlwpNf8TxkMOAb",
     },
     hostElement,
     {
@@ -51,7 +50,7 @@ function bootstrap() {
       },
     }
   );
-  window.launcherUI = launcherUI;
+  window.launcher = launcherPrivateUI;
 }
 
 window.addEventListener("DOMContentLoaded", () => {
