@@ -125,12 +125,11 @@ function liveCatLirary(output) {
 
 export default (cliArgs) => {
   const { configDebugPath } = cliArgs;
-  const OUTPUT_PATH = !MODE_PROD
+  const OUTPUT_PATH = MODE_PROD
     ? "build"
     : path.join(
       // configDebugPath || "example/live-cat-library-debug-page",
       configDebugPath || "../3dcat-player-gather",
-      // configDebugPath || " ../../../../多个demo构建实现",
       // configDebugPath || "../3dcat-privatization-player",
       // configDebugPath || "../3dcat-external-jssdk-gather",
       "node_modules"
