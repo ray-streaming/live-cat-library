@@ -8,10 +8,15 @@ document.querySelector("body").style.height = "100%";
 function bootstrap() {
   let launcherUI = new LauncherUI(
     {
-      address: "https://app-pre.3dcat.live:14431",
-      appKey: "WEXLks5VQsdfFKP5",
+      address: "https://app.3dcat.live",
+      appKey: "JUzp4FJPeK3yFahY",
       startType: 1,
     },
+    // {
+    //   address: "https://app-pre.3dcat.live:14431",
+    //   appKey: "WEXLks5VQsdfFKP5",
+    //   startType: 1,
+    // },
     hostElement,
     {
       onPlay: () => {
