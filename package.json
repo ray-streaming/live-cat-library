@@ -1,6 +1,6 @@
 {
   "name": "live-cat-library",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "This is a component library for [3DCAT](https://www.3dcat.live/)",
   "types": "./src",
   "main": "./live-cat-library.cjs.js",

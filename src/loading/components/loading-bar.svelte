@@ -17,7 +17,7 @@
 
 <style>
   .bar-container {
-    position: fixed;
+    position: absolute;
     bottom: 0px;
     height: 80px;
     width: 100%;
