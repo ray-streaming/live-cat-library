@@ -30,6 +30,7 @@ export interface PrivateStartInfo {
   supportTransfer: boolean; //投屏转移控制权
   enabledReconnect: boolean; //断线重连
   terminalMultiOpen: boolean; //支持多开重连
+  accessDurationLimit?: number //试用时长/min
 }
 
 export interface CommonResponse<T = any> {

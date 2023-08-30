@@ -29,6 +29,7 @@ import { AutoRetry, StorageType } from "./utils/auto-retry";
 import { PrivateReport } from "./utils/private-report";
 import { FastTouchSideEffect } from "./utils/helper";
 import { LiveStart, LiveStop, LiveURL } from "./utils/extend-adapter";
+import { KeepActiveHelper } from "./utils/keek-active-helper";
 
 enum VirtualControlDisplayType {
   HideAll = 0,
@@ -65,6 +66,7 @@ interface ExtendUIOptions {
   // onQueue: (rank: number) => void;//私有云暂无排队功能
   onLoadingError: (err: LoadingError) => void;
   onRunningId: (taskId: number) => void;
+  onRemoteConfig: (config: PrivateStartInfo) => void;
   onShowUserList: (showCastScreenUsers: boolean) => void;
   onRunningOptions: (opt: OnRunningOptions) => void;
   terminalMultiOpen: boolean;
@@ -80,6 +82,7 @@ export class LauncherPrivateUI {
     onLoadingError: () => { },
     onRunningId: () => { },
     onShowUserList: () => { },
+    onRemoteConfig: () => { },
     onRunningOptions: () => { },
     terminalMultiOpen: false,
     ...LoadingCompoent.defaultOptions,
@@ -98,6 +101,7 @@ export class LauncherPrivateUI {
   private tempOption?: DesignInfo;
   private privateReport?: PrivateReport;
   private token?: string;
+  private keepActiveHelper?: KeepActiveHelper
   constructor(
     protected baseOptions: ExtendBaseOptions,
     protected hostElement: HTMLElement,
@@ -372,6 +376,7 @@ export class LauncherPrivateUI {
       : InputHoverButton.Hide;
 
     document.title = appName;
+    this.extendUIOptions.onRemoteConfig(data)
     this.extendUIOptions.onShowUserList(userList);
 
     const bitrate = handleNormalizeBirate(
@@ -476,11 +481,19 @@ export class LauncherPrivateUI {
               this.options.onPhaseChange(phase, deltaTime);
             this.loading.changePhase(phase);
 
+            if (phase === 'loaded-metadata') {
+              this.keepActiveHelper?.resendKeyFrame()
+            }
+            if (phase === 'signaling-connected') {
+              this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
+            }
+
             if (phase === "streaming-ready" && !isAutoLoadingVideo) {
               autoLoadingVideo.set(false);
               autoLoadingVideoHandler.set(() => {
                 this.launcherBase?.resumeVideoStream();
               });
+              this.keepActiveHelper?.clearResendTimer()
             }
           },
           onPlay: () => {
@@ -507,6 +520,7 @@ export class LauncherPrivateUI {
                 );
               });
             }
+            this.keepActiveHelper?.setKeepAlive()
           },
           onError: (reason: ErrorState) => {
             this.options?.onError && this.options?.onError(reason);
@@ -646,6 +660,7 @@ export class LauncherPrivateUI {
       });
       this.launcherBase?.player.setUpOverlayElementBg(imageUrl);
     }
+    this.keepActiveHelper?.destroy()
     this.launcherBase?.destory();
   }
 }

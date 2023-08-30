@@ -1,12 +1,14 @@
 <script lang="ts">
-  import { autoLoadingVideoHandler } from "../../store";
-  import Enter from "../icons/enter.svelte";
-  export let hasLoadingBgImage: boolean;
+  import { autoLoadingVideoHandler } from '../../store'
+  import Enter from '../icons/enter.svelte'
+  export let hasLoadingBgImage: boolean
 </script>
 
 <div
   class="enter-button-container {hasLoadingBgImage ? 'bg-flag' : 'not-bg-flag'}"
-  on:touchstart={() => $autoLoadingVideoHandler()}
+  aria-hidden="true"
+  on:touchstart|nonpassive={() => $autoLoadingVideoHandler()}
+  on:click={() => $autoLoadingVideoHandler()}
 >
   <span class="enter-app">进入应用</span>
   <Enter class="enter-svg" />

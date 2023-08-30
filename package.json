@@ -1,6 +1,6 @@
 {
   "name": "live-cat-library",
-  "version": "0.2.9",
+  "version": "0.3.0",
   "description": "This is a component library for [3DCAT](https://www.3dcat.live/)",
   "types": "./src",
   "main": "./live-cat-library.cjs.js",
@@ -37,6 +37,7 @@
     "rollup-plugin-copy": "^3.4.0",
     "rollup-plugin-svelte": "^7.1.4",
     "rollup-plugin-terser": "^7.0.2",
+    "rollup-plugin-url": "^3.0.1",
     "svelte": "3.57.0",
     "svelte-preprocess": "^4.10.4",
     "svelte-viewport-info": "^1.0.0",

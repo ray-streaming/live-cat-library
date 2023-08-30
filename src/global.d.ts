@@ -5,3 +5,4 @@ declare namespace svelte.JSX {
   }
 }
 declare module "*.js";
+declare module "*.mp3";

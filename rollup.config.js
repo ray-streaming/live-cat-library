@@ -9,6 +9,7 @@ import { terser } from "rollup-plugin-terser";
 import copy from "rollup-plugin-copy";
 import image from "@rollup/plugin-image";
 import replace from "@rollup/plugin-replace";
+import url from 'rollup-plugin-url';
 import liveCatLiraryPKG from "./package.json";
 
 const MODE_PROD = process.env.NODE_ENV === "production";
@@ -55,11 +56,19 @@ function liveCatLirary(output) {
     resolve({ browser: true, dedupe: ["svelte"] }),
     commonjs(),
     typescript(),
+    // 其他插件
+    url({
+      // 指定要处理的资源文件后缀名
+      include: ['src/utils/*.mp3'],
+      // 设置文件大小阈值（以字节为单位），超过此阈值的文件将被转换为DataURL或Base64编码的字符串
+      limit: Infinity,
+      // emitFiles: false
+    }),
     ...(MODE_PROD
       ? [
-          strip({ include: ["**/*.ts"] }),
-          terser({ compress: { drop_console: true } }),
-        ]
+        strip({ include: ["**/*.ts"] }),
+        terser({ compress: { drop_console: true } }),
+      ]
       : []),
   ];
 
@@ -119,12 +128,12 @@ export default (cliArgs) => {
   const OUTPUT_PATH = MODE_PROD
     ? "build"
     : path.join(
-        // configDebugPath || "example/live-cat-library-debug-page",
-        configDebugPath || "../3dcat-player-gather",
-        // configDebugPath || "../3dcat-privatization-player",
-        // configDebugPath || "../3dcat-external-jssdk-gather",
-        "node_modules"
-      );
+      // configDebugPath || "example/live-cat-library-debug-page",
+      configDebugPath || "../3dcat-player-gather",
+      // configDebugPath || "../3dcat-privatization-player",
+      // configDebugPath || "../3dcat-external-jssdk-gather",
+      "node_modules"
+    );
   const builds = [...liveCatLirary(OUTPUT_PATH)] || [];
   return builds;
 };

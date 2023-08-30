@@ -17,6 +17,8 @@ export interface Options {
 
   phaseChanged: boolean;
   percentChanged: boolean;
+
+  phaseTextMap?: Map<Phase, [number, string]>
 }
 export interface OnChange {
   phase: Phase;
@@ -34,6 +36,9 @@ export class LoadingCompoent {
 
     phaseChanged: true,
     percentChanged: true,
+
+    phaseTextMap: undefined
+
   };
   loadingCompoent: Loading;
   private options: Options;
@@ -98,7 +103,7 @@ export class LoadingCompoent {
 
   changePhase(phase: Phase) {
     try {
-      const [percent, text] = PhasePercentMap.get(phase)!;
+      const [percent, text] = this.options.phaseTextMap ? this.options.phaseTextMap.get(phase)! : PhasePercentMap.get(phase)!;
       this.phase = phase;
       showFakePercent.set(this.options.showFakePercent); //reset
       endPercentNum.set(percent);

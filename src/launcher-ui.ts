@@ -27,6 +27,7 @@ import { StatusMap } from "./utils/status-code";
 import type { Options as loadingOptions } from "./loading/loading";
 import { AutoRetry, StorageType } from "./utils/auto-retry";
 import { FastTouchSideEffect } from "./utils/helper";
+import { KeepActiveHelper } from "./utils/keek-active-helper";
 interface LoadingError {
   code: number | string;
   type: "app" | "task" | "connection" | "reConnection";
@@ -78,6 +79,7 @@ export class LauncherUI {
   private isReconnectEnabled: boolean = false;
   private offline: boolean = false;
   private tempOption?: InitializeConfigType;
+  private keepActiveHelper?: KeepActiveHelper
   constructor(
     protected baseOptions: BaseOptionsType,
     protected hostElement: HTMLElement,
@@ -300,11 +302,18 @@ export class LauncherUI {
               this.options.onPhaseChange(phase, deltaTime);
             this.loading.changePhase(phase);
 
+            if (phase === 'loaded-metadata') {
+              this.keepActiveHelper?.resendKeyFrame()
+            }
+            if (phase === 'signaling-connected') {
+              this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
+            }
             if (phase === "data-channel-open" && !isAutoLoadingVideo) {
               autoLoadingVideo.set(false);
               autoLoadingVideoHandler.set(() => {
                 this.launcherBase?.resumeVideoStream();
               });
+              this.keepActiveHelper?.clearResendTimer()
             }
           },
           onPlay: () => {
@@ -316,7 +325,7 @@ export class LauncherUI {
               this.autoRetry.setupCount(1);
             }
             this.loading.destroy();
-            
+
             //多点触控情况下，快速触摸/抬起将模拟发送鼠标按下
             if (this.diffServerAndDiyOptions?.openMultiTouch) {
               new FastTouchSideEffect(this.launcherBase?.player.video!, () => {
@@ -325,6 +334,7 @@ export class LauncherUI {
                 );
               });
             }
+            this.keepActiveHelper?.setKeepAlive()
           },
           onError: (reason: ErrorState) => {
             this.options?.onError && this.options?.onError(reason);
@@ -596,6 +606,7 @@ export class LauncherUI {
       });
       this.launcherBase?.player.setUpOverlayElementBg(imageUrl);
     }
+    this.keepActiveHelper?.destroy()
     this.launcherBase?.destory();
   }
 }
