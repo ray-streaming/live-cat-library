@@ -137,8 +137,8 @@ export class LauncherUI {
 
   private handlerRetryAction() {
     const { count } = this.autoRetry.getRetryInfo()!;
-    this.launcherBase?.playerShell.destroy();
-    this.launcherBase?.player.destroy();
+    this.launcherBase?.playerShell.destory();
+    this.launcherBase?.player.destory();
     this.destroy();
 
     //重新loading
@@ -607,6 +607,6 @@ export class LauncherUI {
       this.launcherBase?.player.setUpOverlayElementBg(imageUrl);
     }
     this.keepActiveHelper?.destroy()
-    this.launcherBase?.destroy();
+    this.launcherBase?.destory();
   }
 }
