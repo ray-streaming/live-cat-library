@@ -86,6 +86,7 @@ export class LoadingCompoent {
     this.loadingCompoent = new Loading({
       target: container,
       props: {
+        host: container,
         loadingImage,
         loadingBgImage,
         loadingBarImage,

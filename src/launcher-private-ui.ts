@@ -283,7 +283,7 @@ export class LauncherPrivateUI {
     const { count } = this.autoRetry.getRetryInfo()!;
     this.launcherBase?.playerShell.destory();
     this.launcherBase?.player.destory();
-    this.destory();
+    this.destroy();
 
     //重新loading
     this.loading = new LoadingCompoent(
@@ -529,8 +529,8 @@ export class LauncherPrivateUI {
               type: "connection",
               reason: ErrorStateMap.get(reason) ?? reason,
             });
-            //todo：may loading destory before emit error
-            this.destory(ErrorStateMap.get(reason) ?? reason);
+            //todo：may loading destroy before emit error
+            this.destroy(ErrorStateMap.get(reason) ?? reason);
           },
         };
 
@@ -637,7 +637,7 @@ export class LauncherPrivateUI {
     this.launcherBase?.connection.send(new LiveURL(url).dumps(), true)
   }
 
-  destory(
+  destroy(
     text: string = "连接已关闭",
     opt: { videoScreenshot: boolean } = { videoScreenshot: false }
   ) {
