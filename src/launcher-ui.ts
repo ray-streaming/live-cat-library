@@ -137,9 +137,9 @@ export class LauncherUI {
 
   private handlerRetryAction() {
     const { count } = this.autoRetry.getRetryInfo()!;
-    this.launcherBase?.playerShell.destory();
-    this.launcherBase?.player.destory();
-    this.destory();
+    this.launcherBase?.playerShell.destroy();
+    this.launcherBase?.player.destroy();
+    this.destroy();
 
     //重新loading
     this.loading = new LoadingCompoent(
@@ -343,8 +343,8 @@ export class LauncherUI {
               type: "connection",
               reason: ErrorStateMap.get(reason) ?? reason,
             });
-            //todo：may loading destory before emit error
-            this.destory(ErrorStateMap.get(reason) ?? reason);
+            //todo：may loading destroy before emit error
+            this.destroy(ErrorStateMap.get(reason) ?? reason);
           },
         };
 
@@ -583,7 +583,7 @@ export class LauncherUI {
     }
   }
 
-  destory(
+  destroy(
     text: string = "连接已关闭",
     opt: { videoScreenshot: boolean } = { videoScreenshot: false }
   ) {
@@ -607,6 +607,6 @@ export class LauncherUI {
       this.launcherBase?.player.setUpOverlayElementBg(imageUrl);
     }
     this.keepActiveHelper?.destroy()
-    this.launcherBase?.destory();
+    this.launcherBase?.destroy();
   }
 }
