@@ -8,11 +8,11 @@ import {
   StatusInterface,
   StatusResponse,
 } from "./client/interface";
-import { LoadingCompoent } from "./loading/loading";
+import { LoadingComponent } from "./loading/loading";
 import type { OnChange } from "./loading/loading";
 
 import {
-  handlerSendAgoraVerfy,
+  handlerSendAgoraVerify,
   isAndroid,
   isIOS,
   isWeiXin,
@@ -28,6 +28,9 @@ import type { Options as loadingOptions } from "./loading/loading";
 import { AutoRetry, StorageType } from "./utils/auto-retry";
 import { FastTouchSideEffect } from "./utils/helper";
 import { KeepActiveHelper } from "./utils/keek-active-helper";
+import ImeSwitch from "./components/ime-switch/ime-switch.svelte";
+// import VirtualKeyboard from "./components/virtual-keyboard/virtual-keyboard.svelte";
+// import { VirtualKeyboardComponent } from "./components/virtual-keyboard/virtual-keyboard";
 interface LoadingError {
   code: number | string;
   type: "app" | "task" | "connection" | "reConnection";
@@ -65,9 +68,9 @@ export class LauncherUI {
     onShowUserList: () => { },
     onRunningOptions: () => { },
     terminalMultiOpen: false,
-    ...LoadingCompoent.defaultOptions,
+    ...LoadingComponent.defaultOptions,
   };
-  loading: LoadingCompoent;
+  loading: LoadingComponent;
   launcherBase?: LauncherBase;
 
   private client: Client;
@@ -87,7 +90,7 @@ export class LauncherUI {
   ) {
     this.extendUIOptions = { ...LauncherUI.defaultExtendOptions, ...options };
 
-    this.loading = new LoadingCompoent(
+    this.loading = new LoadingComponent(
       this.hostElement,
       { showDefaultLoading: false },
       (cb: OnChange) => {
@@ -104,7 +107,7 @@ export class LauncherUI {
         this.handlerError({
           code: res.code,
           type: "app",
-          reason: StatusMap.get(res.code as number)![1] ?? res.message,
+          reason: StatusMap.get(res.code as number)?.[1] ?? res.message,
         });
         throw res.code;
       }
@@ -137,12 +140,12 @@ export class LauncherUI {
 
   private handlerRetryAction() {
     const { count } = this.autoRetry.getRetryInfo()!;
-    this.launcherBase?.playerShell.destory();
-    this.launcherBase?.player.destory();
+    this.launcherBase?.playerShell.destroy();
+    this.launcherBase?.player.destroy();
     this.destroy();
 
     //重新loading
-    this.loading = new LoadingCompoent(
+    this.loading = new LoadingComponent(
       this.hostElement,
       { showDefaultLoading: false },
       (cb: OnChange) => {
@@ -151,18 +154,18 @@ export class LauncherUI {
     );
     const { loadingImage, verticalLoading, horizontalLoading } =
       this.tempOption!;
-    this.loading.loadingCompoent.loadingImage =
+    this.loading.loadingComponent.loadingImage =
       this.options?.loadingImage || loadingImage!;
 
-    this.loading.loadingCompoent.loadingBgImage = {
+    this.loading.loadingComponent.loadingBgImage = {
       portrait: this.options?.loadingBgImage?.portrait || verticalLoading!,
       landscape: this.options?.loadingBgImage?.landscape || horizontalLoading!,
     };
 
-    this.loading.loadingCompoent.loadingBarImage =
+    this.loading.loadingComponent.loadingBarImage =
       this.options?.loadingImage || loadingImage!;
 
-    this.loading.loadingCompoent.showDefaultLoading =
+    this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
 
     //第一次马上重连
@@ -182,7 +185,7 @@ export class LauncherUI {
     );
     const increaseRetryRes = this.autoRetry.increaseRetryCount();
     if (increaseRetryRes) {
-      this.handlerEntryConnetion();
+      this.handlerEntryConnect();
     } else {
       this.loading.showLoadingText("网络连接异常，请稍后重试", false);
       return;
@@ -228,18 +231,18 @@ export class LauncherUI {
       disablePointerLock: this.options?.disablePointerLock ?? true,
     };
 
-    this.loading.loadingCompoent.loadingImage =
+    this.loading.loadingComponent.loadingImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.loadingBgImage = {
+    this.loading.loadingComponent.loadingBgImage = {
       portrait: this.options?.loadingBgImage?.portrait ?? verticalLoading!,
       landscape: this.options?.loadingBgImage?.landscape ?? horizontalLoading!,
     };
 
-    this.loading.loadingCompoent.loadingBarImage =
+    this.loading.loadingComponent.loadingBarImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.showDefaultLoading =
+    this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
   }
 
@@ -271,7 +274,6 @@ export class LauncherUI {
     await sleep(200);
     return await this.waitForRunning(taskId);
   };
-
   private handlerStatusSwitch = (res: StatusInterface): void => {
     let { token = "", signaling, coturns, status, agoraServiceVerify } = res;
     switch (status) {
@@ -292,6 +294,11 @@ export class LauncherUI {
           ...this.diffServerAndDiyOptions,
           autoLoadingVideo: isAutoLoadingVideo,
           startType: this.baseOptions.startType,
+          onMount: (ele: HTMLElement) => {
+            this.options?.onMount && this.options.onMount(ele)
+            new ImeSwitch({ target: ele, props: { connection: this.launcherBase?.connection! } })
+            // new VirtualKeyboardComponent(ele, { onEvent: (ev) => this.launcherBase?.connection.send(ev, true) }).connect(this.launcherBase?.connection)
+          },
           onQuit: () => {
             this.options?.onQuit && this.options.onQuit();
             //主动退出，清除taskId缓存
@@ -356,7 +363,7 @@ export class LauncherUI {
         );
 
         !!agoraServiceVerify &&
-          handlerSendAgoraVerfy(
+          handlerSendAgoraVerify(
             this.launcherBase.connection,
             agoraServiceVerify
           );
@@ -379,7 +386,7 @@ export class LauncherUI {
         this.handlerError({
           code: Status.NoIdle,
           type: "task",
-          reason: "没有空闲节点",
+          reason: "连接已断开",
         });
         break;
       case Status.Stopped:
@@ -437,7 +444,7 @@ export class LauncherUI {
         reason: err.reason,
       });
 
-      this.loading = new LoadingCompoent(
+      this.loading = new LoadingComponent(
         this.hostElement,
         {},
         (cb: OnChange) => {
@@ -449,7 +456,7 @@ export class LauncherUI {
       });
       return;
     }
-    this.loading.loadingCompoent.showDefaultLoading = false;
+    this.loading.loadingComponent.showDefaultLoading = false;
     this.loading.showLoadingText(err.reason, false);
     this.extendUIOptions.onLoadingError({
       code: err.code,
@@ -458,7 +465,7 @@ export class LauncherUI {
     });
   }
 
-  handlerEntryConnetion() {
+  handlerEntryConnect() {
     this.autoRetry.handlerSetTimeout(() => {
       this.handlerStart();
     });
@@ -510,7 +517,7 @@ export class LauncherUI {
               this.handlerError({
                 code: res.code,
                 type: "app",
-                reason: StatusMap.get(res.code as number)![1] ?? res.message,
+                reason: StatusMap.get(res.code as number)?.[1] ?? res.message,
               });
               throw res.code;
             }
@@ -533,14 +540,19 @@ export class LauncherUI {
         this.startClient = this.client
           .getPlayerUrl(this.baseOptions)
           .then(async (res) => {
-            if (!res.result) {
-              this.handlerError({
-                code: res.code,
-                type: "app",
-                reason: StatusMap.get(res.code as number)![1] ?? res.message,
-              });
-              throw res.code;
+            try {
+              if (!res.result) {
+                this.handlerError({
+                  code: res.code,
+                  type: "app",
+                  reason: StatusMap.get(res.code as number)?.[1] ?? res.message,
+                });
+                throw res.code;
+              }
+            } catch (error) {
+              console.log('error', error)
             }
+
             return res.data;
           })
           .then((data) => {
@@ -607,6 +619,6 @@ export class LauncherUI {
       this.launcherBase?.player.setUpOverlayElementBg(imageUrl);
     }
     this.keepActiveHelper?.destroy()
-    this.launcherBase?.destory();
+    this.launcherBase?.destroy();
   }
 }

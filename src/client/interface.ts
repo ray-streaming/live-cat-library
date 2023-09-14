@@ -31,6 +31,7 @@ export interface PrivateStartInfo {
   enabledReconnect: boolean; //断线重连
   terminalMultiOpen: boolean; //支持多开重连
   accessDurationLimit?: number //试用时长/min
+  landscapeType: LandscapeType; //初始化显示模式，私有化pc、移动端同时生效，公有云仅移动端生效
 }
 
 export interface CommonResponse<T = any> {
@@ -149,7 +150,7 @@ export enum Status {
   Pending = 20, //分配到节点，等待连接
   Running = 30, //运行中
   Failed = 40, //应用运行失败
-  NoIdle = 50, //没有空闲节点
+  NoIdle = 50, //连接已断开
   Stopped = 60, //运行结束
 }
 

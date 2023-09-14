@@ -9,7 +9,7 @@ function bootstrap() {
   let launcherUI = new LauncherUI(
     {
       address: "https://app.3dcat.live",
-      appKey: "JUzp4FJPeK3yFahY",
+      appKey: "bRlLcMtPET9BKlw5",
       startType: 1,
     },
     // {
@@ -23,7 +23,7 @@ function bootstrap() {
         console.log("player---------");
       },
       onChange: (res) => {
-        console.log("onChange", res);
+        // console.log("onChange", res);
       },
       onQueue: (res) => {
         console.log("onQueue", res);

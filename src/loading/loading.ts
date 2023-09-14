@@ -26,7 +26,7 @@ export interface OnChange {
   deltaTime: number;
 }
 
-export class LoadingCompoent {
+export class LoadingComponent {
   static defaultOptions: Options = {
     loadingImage: "",
     loadingBgImage: { portrait: "", landscape: "" },
@@ -40,7 +40,7 @@ export class LoadingCompoent {
     phaseTextMap: undefined
 
   };
-  loadingCompoent: Loading;
+  loadingComponent: Loading;
   private options: Options;
   // private onChange: (cb: OnChange) => void;
 
@@ -51,7 +51,7 @@ export class LoadingCompoent {
   set phase(v: Phase) {
     this._phase = v;
     this.options.phaseChanged &&
-      this.handerAllChange(~~(performance.now() - this._deltaTimeMetadata));
+      this.handleAllChange(~~(performance.now() - this._deltaTimeMetadata));
   }
   get phase() {
     return this._phase!;
@@ -60,7 +60,7 @@ export class LoadingCompoent {
   set percent(v: number) {
     this._percent = v;
     this.options.percentChanged &&
-      this.handerAllChange(~~(performance.now() - this._deltaTimeMetadata));
+      this.handleAllChange(~~(performance.now() - this._deltaTimeMetadata));
   }
   get percent() {
     return this._percent;
@@ -71,7 +71,7 @@ export class LoadingCompoent {
     protected onChange?: (cb: OnChange) => void
   ) {
     this.options = {
-      ...LoadingCompoent.defaultOptions,
+      ...LoadingComponent.defaultOptions,
       ...options,
     };
     this.changePhase("initial");
@@ -83,7 +83,7 @@ export class LoadingCompoent {
       loadingBarImage,
     } = this.options;
 
-    this.loadingCompoent = new Loading({
+    this.loadingComponent = new Loading({
       target: container,
       props: {
         host: container,
@@ -113,7 +113,7 @@ export class LoadingCompoent {
       throw new Error(`No detail was found for this phase: "${phase}"`);
     }
   }
-  private handerAllChange(deltaTime: number) {
+  private handleAllChange(deltaTime: number) {
     this.onChange &&
       this.onChange({
         phase: this.phase,
@@ -122,6 +122,6 @@ export class LoadingCompoent {
       });
   }
   destroy() {
-    this.loadingCompoent.$destroy();
+    this.loadingComponent.$destroy();
   }
 }

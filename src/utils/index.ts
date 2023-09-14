@@ -1,4 +1,5 @@
 import type { Connection } from "live-cat";
+import { StatusMap } from "./status-code";
 
 export const isWeiXin = () =>
   navigator.userAgent.includes("miniProgram") ||
@@ -62,7 +63,7 @@ export function takeScreenshotUrl(
   const dataUrl = canvas.toDataURL();
   return dataUrl;
 }
-export const handlerSendAgoraVerfy = async (
+export const handlerSendAgoraVerify = async (
   content: Connection,
   agoraServiceVerify: string
 ) => {
@@ -73,7 +74,7 @@ export const handlerSendAgoraVerfy = async (
     .then(async (result) => {
       if (!result) {
         await sleep(200);
-        await handlerSendAgoraVerfy(content, agoraServiceVerify);
+        await handlerSendAgoraVerify(content, agoraServiceVerify);
       }
       return result;
     });
@@ -98,7 +99,7 @@ export const rateMapField = new Map<RateLevel, RateMapType>([
   [RateLevel.UHD4K, { label: "蓝光", value: 15000 }],
 ]);
 
-export const handleNormalizeBirate = (defaultBitrate: number) => {
+export const handleNormalizeBitrate = (defaultBitrate: number) => {
   const rateLevel = rateMapField.get(defaultBitrate);
   return rateLevel?.value ?? rateMapField.get(RateLevel.HD)!.value;
 };

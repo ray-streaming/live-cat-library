@@ -1,9 +1,16 @@
 export enum EventType {
+  CaretVisible = 8,
   EchoData = 15,
   LIVE_START = 0x34,
   LIVE_STOP,
   LIVE_URL,
 }
+
+
+export const dataChannelMsgSorter = (data: ArrayBuffer) =>
+  new DataView(data).getUint8(0) as EventType
+
+
 
 export class LiveStart {
   constructor(private url?: string) { }

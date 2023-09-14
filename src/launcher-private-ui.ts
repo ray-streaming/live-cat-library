@@ -4,17 +4,19 @@ import { Client } from "./client";
 import type {
   BaseOptionsType,
   DesignInfo,
+  LandscapeType,
   PrivateStartInfo,
   StatusPrivateInterface,
   StatusResponsePrivate,
 } from "./client/interface";
-import { LoadingCompoent } from "./loading/loading";
+import { LoadingComponent } from "./loading/loading";
 import type { OnChange } from "./loading/loading";
 
 import {
-  handleNormalizeBirate,
+  handleNormalizeBitrate,
   isAndroid,
   isIOS,
+  isTouch,
   isWeiXin,
   sleep,
   takeScreenshotUrl,
@@ -30,6 +32,9 @@ import { PrivateReport } from "./utils/private-report";
 import { FastTouchSideEffect } from "./utils/helper";
 import { LiveStart, LiveStop, LiveURL } from "./utils/extend-adapter";
 import { KeepActiveHelper } from "./utils/keek-active-helper";
+import ImeSwitch from "./components/ime-switch/ime-switch.svelte";
+import DisplayModeModal from "./components/display-mode-modal/display-mode-modal.svelte";
+import { displayModeIcon } from "./utils/extend-static-assets";
 
 enum VirtualControlDisplayType {
   HideAll = 0,
@@ -85,9 +90,9 @@ export class LauncherPrivateUI {
     onRemoteConfig: () => { },
     onRunningOptions: () => { },
     terminalMultiOpen: false,
-    ...LoadingCompoent.defaultOptions,
+    ...LoadingComponent.defaultOptions,
   };
-  loading: LoadingCompoent;
+  loading: LoadingComponent;
   launcherBase?: LauncherBase;
   private location: URL;
   private client: Client;
@@ -102,6 +107,7 @@ export class LauncherPrivateUI {
   private privateReport?: PrivateReport;
   private token?: string;
   private keepActiveHelper?: KeepActiveHelper
+  private displayModeComponent?: DisplayModeModal
   constructor(
     protected baseOptions: ExtendBaseOptions,
     protected hostElement: HTMLElement,
@@ -113,7 +119,7 @@ export class LauncherPrivateUI {
     };
     this.location = new URL(this.baseOptions.address);
 
-    this.loading = new LoadingCompoent(
+    this.loading = new LoadingComponent(
       this.hostElement,
       { showDefaultLoading: false },
       (cb: OnChange) => {
@@ -281,12 +287,12 @@ export class LauncherPrivateUI {
 
   private handlerRetryAction() {
     const { count } = this.autoRetry.getRetryInfo()!;
-    this.launcherBase?.playerShell.destory();
-    this.launcherBase?.player.destory();
+    this.launcherBase?.playerShell.destroy();
+    this.launcherBase?.player.destroy();
     this.destroy();
 
     //重新loading
-    this.loading = new LoadingCompoent(
+    this.loading = new LoadingComponent(
       this.hostElement,
       { showDefaultLoading: false },
       (cb: OnChange) => {
@@ -295,18 +301,18 @@ export class LauncherPrivateUI {
     );
     const { loadingImage, verticalLoading, horizontalLoading } =
       this.tempOption!;
-    this.loading.loadingCompoent.loadingImage =
+    this.loading.loadingComponent.loadingImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.loadingBgImage = {
+    this.loading.loadingComponent.loadingBgImage = {
       portrait: this.options?.loadingBgImage?.portrait ?? verticalLoading!,
       landscape: this.options?.loadingBgImage?.landscape ?? horizontalLoading!,
     };
 
-    this.loading.loadingCompoent.loadingBarImage =
+    this.loading.loadingComponent.loadingBarImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.showDefaultLoading =
+    this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
 
     //第一次马上重连
@@ -326,14 +332,14 @@ export class LauncherPrivateUI {
     );
     const increaseRetryRes = this.autoRetry.increaseRetryCount();
     if (increaseRetryRes) {
-      this.handlerEntryConnetion();
+      this.handlerEntryConnect();
     } else {
       this.loading.showLoadingText("网络连接异常，请稍后重试", false);
       return;
     }
   }
 
-  handlerEntryConnetion() {
+  handlerEntryConnect() {
     this.autoRetry.handlerSetTimeout(() => {
       this.handlerStart();
     });
@@ -365,6 +371,7 @@ export class LauncherPrivateUI {
       defaultBitrate,
       userList,
       needLandscape,
+      landscapeType
     } = data;
     keyboardMappingConfig =
       keyboardMappingConfig &&
@@ -379,7 +386,7 @@ export class LauncherPrivateUI {
     this.extendUIOptions.onRemoteConfig(data)
     this.extendUIOptions.onShowUserList(userList);
 
-    const bitrate = handleNormalizeBirate(
+    const bitrate = handleNormalizeBitrate(
       this.options?.rateLevel ?? defaultBitrate
     );
     this.diffServerAndDiyOptions = {
@@ -397,6 +404,7 @@ export class LauncherPrivateUI {
       startBitrate: this.options?.startBitrate ?? bitrate,
       disablePointerManager: this.options?.disablePointerManager ?? true,
       disablePointerLock: this.options?.disablePointerLock ?? true,
+      landscapeType: this.options?.landscapeType ?? landscapeType!,
     };
   }
 
@@ -415,18 +423,18 @@ export class LauncherPrivateUI {
     const { loadingImage, horizontalLoading, verticalLoading, toolbarLogo } =
       data;
     this.toolbarLogo = toolbarLogo;
-    this.loading.loadingCompoent.loadingImage =
+    this.loading.loadingComponent.loadingImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.loadingBgImage = {
+    this.loading.loadingComponent.loadingBgImage = {
       portrait: this.options?.loadingBgImage?.portrait ?? verticalLoading!,
       landscape: this.options?.loadingBgImage?.landscape ?? horizontalLoading!,
     };
 
-    this.loading.loadingCompoent.loadingBarImage =
+    this.loading.loadingComponent.loadingBarImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.showDefaultLoading =
+    this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
   }
   private waitForRunning = async (
@@ -471,6 +479,37 @@ export class LauncherPrivateUI {
           autoLoadingVideo: isAutoLoadingVideo,
           toolbarLogo: this.options?.toolbarLogo ?? this.toolbarLogo,
           startType: this.baseOptions.startType,
+          toolOption: {
+            extendTools: (this.options?.toolOption?.extendTools ?? []).concat([
+              {
+                icon: displayModeIcon,
+                text: "显示模式",
+                platform: 1,
+                order: 1,
+                onClick: () => {
+                  this.displayModeComponent!.show = true
+                },
+              },
+            ])
+          },
+
+          onMount: (ele: HTMLElement) => {
+            this.options?.onMount && this.options.onMount(ele)
+            new ImeSwitch({ target: ele, props: { connection: this.launcherBase?.connection! } })
+            if (!isTouch()) {
+              this.displayModeComponent
+                = new DisplayModeModal({
+                  target: ele,
+                  props:
+                  {
+                    show: false,
+                    displayMode: this.diffServerAndDiyOptions?.landscapeType,
+                    changeDisplayMode: (mode: LandscapeType) => { this.launcherBase?.player.handleChangeLandscapeType(mode) }
+                  }
+                })
+            }
+
+          },
           onQuit: () => {
             this.options?.onQuit && this.options.onQuit();
             //主动退出，清除taskId/runningId缓存
@@ -521,6 +560,11 @@ export class LauncherPrivateUI {
               });
             }
             this.keepActiveHelper?.setKeepAlive()
+            if (!isTouch()) {
+              //Todo:后面需要在live-cat做终端区分，并统一处理
+              //Note:pc端设置显示模式，移动端已在live-cat设置
+              this.launcherBase?.player.handleChangeLandscapeType(this.diffServerAndDiyOptions?.landscapeType!)
+            }
           },
           onError: (reason: ErrorState) => {
             this.options?.onError && this.options?.onError(reason);
@@ -605,7 +649,7 @@ export class LauncherPrivateUI {
         reason: err.reason,
       });
 
-      this.loading = new LoadingCompoent(
+      this.loading = new LoadingComponent(
         this.hostElement,
         {},
         (cb: OnChange) => {
@@ -618,7 +662,7 @@ export class LauncherPrivateUI {
       return;
     }
 
-    this.loading.loadingCompoent.showDefaultLoading = false;
+    this.loading.loadingComponent.showDefaultLoading = false;
     this.loading.showLoadingText(err.reason, false);
     this.extendUIOptions.onLoadingError({
       code: err.code,
@@ -661,6 +705,6 @@ export class LauncherPrivateUI {
       this.launcherBase?.player.setUpOverlayElementBg(imageUrl);
     }
     this.keepActiveHelper?.destroy()
-    this.launcherBase?.destory();
+    this.launcherBase?.destroy();
   }
 }
