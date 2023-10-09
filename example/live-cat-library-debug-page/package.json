@@ -19,6 +19,7 @@
   "dependencies": {
     "@rollup/plugin-replace": "^5.0.2",
     "live-cat": "^1.1.1",
-    "live-cat-library": "^0.2.3"
+    "live-cat-library": "^0.2.3",
+    "stunturncheck": "^1.0.2"
   }
 }

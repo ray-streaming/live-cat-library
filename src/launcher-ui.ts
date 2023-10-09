@@ -4,6 +4,7 @@ import { Client } from "./client";
 import {
   BaseOptionsType,
   InitializeConfigType,
+  KeyboardType,
   Status,
   StatusInterface,
   StatusResponse,
@@ -15,6 +16,7 @@ import {
   handlerSendAgoraVerify,
   isAndroid,
   isIOS,
+  isTouch,
   isWeiXin,
   sleep,
   takeScreenshotUrl,
@@ -28,9 +30,10 @@ import type { Options as loadingOptions } from "./loading/loading";
 import { AutoRetry, StorageType } from "./utils/auto-retry";
 import { FastTouchSideEffect } from "./utils/helper";
 import { KeepActiveHelper } from "./utils/keek-active-helper";
-import ImeSwitch from "./components/ime-switch/ime-switch.svelte";
-// import VirtualKeyboard from "./components/virtual-keyboard/virtual-keyboard.svelte";
-// import { VirtualKeyboardComponent } from "./components/virtual-keyboard/virtual-keyboard";
+import { CheckIceServers } from "./utils/check-ice-server";
+import { VirtualKeyboardComponent } from "./components/virtual-keyboard/virtual-keyboard";
+import { ImeSwitchComponent } from "./components/ime-switch/ime-switch";
+import { FakeImeInputComponent } from "./components/fake-ime-input";
 interface LoadingError {
   code: number | string;
   type: "app" | "task" | "connection" | "reConnection";
@@ -51,6 +54,8 @@ interface ExtendUIOptions {
   onShowUserList: (showCastScreenUsers: boolean) => void;
   onRunningOptions: (opt: OnRunningOptions) => void;
   terminalMultiOpen: boolean;
+  keyboardType: KeyboardType
+  phaseTextMap?: Map<Phase, [number, string]>
 }
 
 type UIOptions = Options & loadingOptions & ExtendUIOptions;
@@ -68,6 +73,8 @@ export class LauncherUI {
     onShowUserList: () => { },
     onRunningOptions: () => { },
     terminalMultiOpen: false,
+    keyboardType: KeyboardType.Virtual,
+    phaseTextMap: undefined,
     ...LoadingComponent.defaultOptions,
   };
   loading: LoadingComponent;
@@ -92,7 +99,7 @@ export class LauncherUI {
 
     this.loading = new LoadingComponent(
       this.hostElement,
-      { showDefaultLoading: false },
+      { showDefaultLoading: false, phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
       (cb: OnChange) => {
         this.extendUIOptions.onChange(cb);
       }
@@ -147,7 +154,7 @@ export class LauncherUI {
     //重新loading
     this.loading = new LoadingComponent(
       this.hostElement,
-      { showDefaultLoading: false },
+      { showDefaultLoading: false, phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
       (cb: OnChange) => {
         this.extendUIOptions.onChange(cb);
       }
@@ -206,11 +213,13 @@ export class LauncherUI {
       token,
       isFullScreen,
       openMicrophone,
+      keyboardType
     } = data;
     this.tempOption = data;
     document.title = appName;
     this.token = token;
 
+    this.extendUIOptions.keyboardType = this.options?.keyboardType ?? keyboardType
     this.options?.onShowUserList &&
       this.options.onShowUserList(showCastScreenUsers);
 
@@ -274,8 +283,27 @@ export class LauncherUI {
     await sleep(200);
     return await this.waitForRunning(taskId);
   };
+  private handlerMountIme(ele: HTMLElement) {
+    if (isTouch()) {
+      if (this.extendUIOptions?.keyboardType === KeyboardType.Virtual) {
+        new VirtualKeyboardComponent(ele,
+          {
+            onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
+          }).connect(this.launcherBase?.connection)
+      } else {
+        new FakeImeInputComponent(ele,
+          {
+            onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
+          }).connect(this.launcherBase?.connection)
+      }
+    } else {
+      new ImeSwitchComponent(ele, { onEvent: (ev) => this.launcherBase?.connection.send(ev, true) }).connect(this.launcherBase?.connection)
+    }
+
+  }
   private handlerStatusSwitch = (res: StatusInterface): void => {
     let { token = "", signaling, coturns, status, agoraServiceVerify } = res;
+
     switch (status) {
       case Status.Pending:
       case Status.Running:
@@ -296,8 +324,7 @@ export class LauncherUI {
           startType: this.baseOptions.startType,
           onMount: (ele: HTMLElement) => {
             this.options?.onMount && this.options.onMount(ele)
-            new ImeSwitch({ target: ele, props: { connection: this.launcherBase?.connection! } })
-            // new VirtualKeyboardComponent(ele, { onEvent: (ev) => this.launcherBase?.connection.send(ev, true) }).connect(this.launcherBase?.connection)
+            this.handlerMountIme(ele)
           },
           onQuit: () => {
             this.options?.onQuit && this.options.onQuit();
@@ -314,6 +341,18 @@ export class LauncherUI {
             }
             if (phase === 'signaling-connected') {
               this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
+
+              //check iceServers connection
+              const checkIceServers = new CheckIceServers(() => {
+                this.handlerError({
+                  code: "iceServers-disconnect",
+                  type: "connection",
+                  reason: ErrorStateMap.get("iceServers-disconnect")!,
+                });
+              })
+              this.launcherBase?.connection.event.iceStateChange.on((state) => {
+                checkIceServers.toggleStateChange(state)
+              })
             }
             if (phase === "data-channel-open" && !isAutoLoadingVideo) {
               autoLoadingVideo.set(false);
@@ -410,7 +449,7 @@ export class LauncherUI {
       this.isReconnectEnabled &&
       !this.autoRetry.isEmpty &&
       (err.type !== "connection" ||
-        (err.type === "connection" && isAndroid())) &&
+        (err.type === "connection" && isAndroid() && err.code !== 'iceServers-disconnect')) &&
       err.type !== "task"
     ) {
       //在网络不稳定/断网的情况下，需要对重连进行适配
@@ -446,7 +485,7 @@ export class LauncherUI {
 
       this.loading = new LoadingComponent(
         this.hostElement,
-        {},
+        { phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
         (cb: OnChange) => {
           this.extendUIOptions.onChange(cb);
         }

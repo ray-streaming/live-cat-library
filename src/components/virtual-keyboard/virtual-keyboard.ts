@@ -3,13 +3,12 @@ import VirtualKeyboard from "./virtual-keyboard.svelte";
 import SizeNav from "./size-nav.svelte";
 import { EventType, dataChannelMsgSorter } from "../../utils/extend-adapter";
 import type Keyboard from 'simple-keyboard'
-import { allLayoutKey } from "./virtual-keyboard-config";
-export type KeyboardSizeType = | 'large' | 'medium' | 'small'
-export type languageType = 'cn' | 'en'
+import { KeyboardSizeType, LanguageType, allLayoutKey } from "./virtual-keyboard-config";
+
 export interface Options {
   onEvent: (e: ArrayBuffer) => void
   defaultSize: KeyboardSizeType
-  defalutLanguage: languageType
+  defaultLanguage: LanguageType
 }
 
 export class VirtualKeyboardComponent {
@@ -22,20 +21,20 @@ export class VirtualKeyboardComponent {
   static defaultOptions: Options = {
     onEvent: () => { },
     defaultSize: 'medium',
-    defalutLanguage: 'en'
+    defaultLanguage: 'en'
   };
   constructor(protected readonly container: HTMLElement, options?: Partial<Options>) {
     this.options = { ...VirtualKeyboardComponent.defaultOptions, ...options }
-    const { onEvent, defaultSize, defalutLanguage } = this.options
+    const { onEvent, defaultSize, defaultLanguage } = this.options
     this.virtualKeyboardComponent = new VirtualKeyboard({
       target: container,
       props: {
         onEvent,
         defaultSize,
-        defalutLanguage,
+        defaultLanguage,
         onRef: (ref: HTMLDivElement) => { this.keyboardRef = ref },
         onKeyboard: (ins: Keyboard) => { this.keyboard = ins },
-        onClose: () => this.deactive()
+        onClose: () => this.inactive()
       }
     })
     this.SizeNavComponent = new SizeNav({
@@ -61,7 +60,7 @@ export class VirtualKeyboardComponent {
     this.keyboardRef!.style.display = 'flex';
     this.sizeNavRef!.style.display = 'inline-flex';
   }
-  deactive() {
+  inactive() {
     this.keyboardRef!.style.display = 'none';
     this.sizeNavRef!.style.display = 'none';
   }
@@ -69,7 +68,7 @@ export class VirtualKeyboardComponent {
     connection?.dc.addEventListener('message', (msg) => {
       if (dataChannelMsgSorter(msg.data) === EventType.CaretVisible) {
         const res = !!new DataView(msg.data).getUint8(1)
-        res ? this.active() : this.deactive()
+        res ? this.active() : this.inactive()
       }
     })
   }

@@ -24,15 +24,14 @@ export function isTouch() {
       navigator.userAgent
     ) ||
     (navigator.userAgent.includes("Mac") && "ontouchend" in document) ||
-    "ontouchstart" in document ||
-    matchMedia("(pointer:coarse)").matches
+    "ontouchstart" in document
   );
 }
 export function isAndroid() {
   return (
     navigator.userAgent.indexOf('Android') > -1 ||
     navigator.userAgent.indexOf('Adr') > -1 ||
-    (('ontouchstart' in document || matchMedia('(pointer:coarse)').matches) && !isIOS())
+    (('ontouchstart' in document) && !isIOS())
   )
 }
 export function sleep(ms: number) {

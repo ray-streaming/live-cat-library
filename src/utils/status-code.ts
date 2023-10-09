@@ -38,6 +38,7 @@ export const StatusCode = {
 };
 
 export const StatusMap = new Map<number, [StatusType, string]>([
+
   [StatusCode.FAIL, [StatusType.NORMAL, "失败"]],
   [
     StatusCode.RESOURCE_NOT_FOUND,

@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-
+  import InputEnter from '../icons/input-enter.svelte'
+  import InputCancel from '../icons/input-cancel.svelte'
   let inputRef: HTMLInputElement
   export let onTextInput: (text: string) => void
+  export let onCancel: () => void
   function handleEnterText() {
     const text = inputRef.value
     if (text) {
@@ -11,8 +13,6 @@
       inputRef.focus()
     }
   }
-  function handleCloseBox() {}
-
   onMount(() => {
     inputRef.focus()
   })
@@ -27,50 +27,96 @@
     on:keypress|stopPropagation={(e) => e.key === 'Enter' && handleEnterText()}
   />
   <div class="buttonWrap">
-    <button class="button" on:click={handleEnterText}>输入</button>
-    <!-- <button class="button" on:click={handleCloseBox}>关闭</button> -->
+    <div aria-hidden="true" class="button enter" on:click={handleEnterText}>
+      <InputEnter />
+      <span>输入</span>
+    </div>
+    <div aria-hidden="true" class="button cancel" on:click={onCancel}>
+      <InputCancel />
+      <span>关闭</span>
+    </div>
   </div>
 </div>
 
 <style>
   .inputBoxContainer {
-    padding: 0 10px;
-    height: 40px;
-    display: flex;
-    background: rgba(255, 255, 255, 0.88);
-    box-shadow: 0px 3px 7px 3px rgba(9, 18, 32, 0.34), 0px 0px 4px 1px rgba(12, 50, 94, 0.35);
+    padding: 8px 12px;
+    display: inline-flex;
+    background: rgba(234.91, 240.9, 249.9, 0.9);
     border-radius: 4px;
-    border: 1px solid #ffffff;
+    border: 1px solid white;
     align-items: center;
     justify-content: center;
+    --button-active-color: rgba(41, 115, 199, 1);
+    --button-hover-color: rgba(104, 171, 248, 1);
+    --button-normal-color: rgba(51, 142, 246, 1);
+    --button-cancel-color: rgba(184, 190, 198, 1);
   }
 
   .inputBox {
-    width: 546px;
+    width: 500px;
     height: 24px;
     line-height: 24px;
     outline: none;
-    border-radius: 3px;
-    border: 1px solid #acbac0ff;
+    border-radius: 2px;
+    border: 1px solid var(--button-normal-color);
   }
+
   .buttonWrap {
     display: flex;
     margin-left: 10px;
   }
+
   .button {
-    color: #338ef6ff;
-    text-align: center;
-    border: 1px solid #409bf5;
-    padding: 2px 6px;
-    cursor: pointer;
-    font-size: 16px;
-    background-color: rgba(56, 144, 244, 0.15);
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    font-size: 14px;
+    font-family: PingFang SC;
+    font-weight: 400;
+    line-height: 24px;
+    border-radius: 2px;
+    max-height: 24px;
   }
   .button:last-of-type {
-    color: #748ca3ff;
-    position: relative;
-    border: 1px solid #748ca3;
-    background-color: none;
-    margin-left: 5px;
+    margin-left: 8px;
+  }
+  .button span {
+    white-space: nowrap;
+  }
+  .button.enter {
+    color: rgba(255, 255, 255, 1);
+    background-color: var(--button-normal-color);
+  }
+  .button.enter:hover {
+    background-color: var(--button-hover-color);
+  }
+  .button.enter:active {
+    background-color: var(--button-active-color);
+  }
+
+  .button.cancel {
+    color: rgba(140, 140, 140, 1);
+    border: 1px solid var(--button-cancel-color);
+    background-color: rgba(255, 255, 255, 1);
+  }
+  .button.cancel:hover {
+    color: var(--button-hover-color);
+    border: 1px solid var(--button-hover-color);
+    background-color: rgba(245, 245, 245, 1);
+  }
+
+  :global(.button.cancel:hover svg path) {
+    stroke: var(--button-hover-color);
+  }
+
+  .button.cancel:active {
+    color: var(--button-active-color);
+    border: 1px solid var(--button-active-color);
+    background-color: rgba(245, 245, 245, 1);
+  }
+
+  :global(.button.cancel:active svg path) {
+    stroke: var(--button-active-color);
   }
 </style>

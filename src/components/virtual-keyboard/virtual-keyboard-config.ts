@@ -1,12 +1,25 @@
-export const displayDefault = {
-  '{bksp}': '回退',
-  '{lock}': 'caps',
-  '{enter}': '回车',
-  '{tab}': 'tab',
-  '{shift}': 'shift',
-  '{change}': '英文',
-  '{space}': ' ',
-  '{close}': '关闭',
+export type KeyboardSizeType = 'large' | 'medium' | 'small'
+export type LanguageType = 'cn' | 'en'
+
+
+export const keyboardSizeOption: { type: KeyboardSizeType; label: string }[] = [
+  { type: 'large', label: '大' },
+  { type: 'medium', label: '中' },
+  { type: 'small', label: '小' },
+]
+export const LanguageTypeMap = new Map<LanguageType, string>([['cn', '中文'], ['en', '英文']])
+
+export const getKeyboardDisplay = (languageType: LanguageType = 'en') => {
+  return {
+    '{bksp}': '回退',
+    '{lock}': 'caps',
+    '{enter}': '回车',
+    '{tab}': 'tab',
+    '{shift}': 'shift',
+    '{change}': LanguageTypeMap.get(languageType)!,
+    '{space}': ' ',
+    '{close}': '关闭',
+  }
 }
 export const defaultLayout = {
   // 默认布局

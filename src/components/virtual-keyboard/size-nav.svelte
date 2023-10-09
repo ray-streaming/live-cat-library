@@ -1,16 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import type { KeyboardSizeType } from './virtual-keyboard'
+  import { keyboardSizeOption, type KeyboardSizeType } from './virtual-keyboard-config'
 
   export let defaultSize: KeyboardSizeType
   export let changeKeyboardSize: (type: KeyboardSizeType) => void
   export let onRef: (ref: HTMLDivElement) => void
   let sizeNavRef: HTMLDivElement
-  const keyboardSizeOption: { type: KeyboardSizeType; label: string }[] = [
-    { type: 'large', label: '大' },
-    { type: 'medium', label: '中' },
-    { type: 'small', label: '小' },
-  ]
+
   onMount(() => {
     onRef(sizeNavRef)
   })
@@ -33,14 +29,15 @@
 
 <style>
   .size-nav {
-    border-radius: 5px;
+    border-radius: 4px;
     overflow: hidden;
     display: none;
     position: absolute;
     top: 5px;
     transform: translateX(-50%);
     left: 50%;
-    background-color: #ececec;
+    background-color: #e5ebf4;
+    color: rgba(168, 173, 178, 1);
   }
   .size-nav .size-nav-tip {
     padding: 5px 10px;
@@ -51,7 +48,7 @@
     padding: 5px 10px;
   }
   .size-nav .size-item.active {
-    background-color: #86c2ee;
+    background-color: rgba(41, 115, 199, 1);
     color: #fff;
   }
 </style>

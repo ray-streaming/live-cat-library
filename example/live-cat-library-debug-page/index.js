@@ -4,19 +4,18 @@ import { LauncherUI } from "live-cat-library";
 const hostElement = document.querySelector("body");
 document.querySelector("body").style.width = "100%";
 document.querySelector("body").style.height = "100%";
-
 function bootstrap() {
-  let launcherUI = new LauncherUI(
-    {
-      address: "https://app.3dcat.live",
-      appKey: "bRlLcMtPET9BKlw5",
-      startType: 1,
-    },
+  let launcher = new LauncherUI(
     // {
-    //   address: "https://app-pre.3dcat.live:14431",
-    //   appKey: "WEXLks5VQsdfFKP5",
+    //   address: "https://app.3dcat.live",
+    //   appKey: "AuH4G50IX6TSQTVh",
     //   startType: 1,
     // },
+    {
+      address: "https://app-pre.3dcat.live:14431",
+      appKey: "48bQWHgMW7rkLw0r",
+      startType: 1,
+    },
     hostElement,
     {
       onPlay: () => {
@@ -56,7 +55,7 @@ function bootstrap() {
       },
     }
   );
-  window.launcherUI = launcherUI;
+  window.launcher = launcher;
 }
 
 window.addEventListener("DOMContentLoaded", () => {

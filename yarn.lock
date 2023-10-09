@@ -1192,12 +1192,12 @@ listr2@^5.0.7:
     through "^2.3.8"
     wrap-ansi "^7.0.0"
 
-live-cat@^1.1.7:
-  version "1.1.7"
-  resolved "https://registry.yarnpkg.com/live-cat/-/live-cat-1.1.7.tgz#d448a1f70e7fd8d181b10a27e28f29f92e94aff2"
-  integrity sha512-t1zBhs+tL2WMeX/sZTqgA4dQ7tQvzUrVUQ8ewZnG9ItUYIzwa7TO+wo+kpYit/9KVbKLMdSU39R701pB17qw+w==
+live-cat@^1.1.8:
+  version "1.1.8"
+  resolved "https://registry.yarnpkg.com/live-cat/-/live-cat-1.1.8.tgz#b3cce6581317daec2217682b83f917f65725dded"
+  integrity sha512-/U/koaLLP4SfCyt9NKnUM+7qayrxnJrOvN1ch+KwkY2aCFzmkdf7ii90qhPHNGtDYGfNRsLJH9exLOD+Z1CODA==
   dependencies:
-    ray-streaming "2.22.0"
+    ray-streaming "2.22.1"
     react "^17.0.2"
     react-dom "^17.0.2"
     resize-observer-polyfill "^1.5.1"
@@ -1702,10 +1702,10 @@ randombytes@^2.1.0:
   dependencies:
     safe-buffer "^5.1.0"
 
-ray-streaming@2.22.0:
-  version "2.22.0"
-  resolved "https://registry.yarnpkg.com/ray-streaming/-/ray-streaming-2.22.0.tgz#8f8b58132aca4759bd92c5e5d35ac0e0ee6b8fcd"
-  integrity sha512-uBNaQsUGGAHT9y+qf9CPQKCuFM3BY+t8UEtSSuN4SNqBKsRgVNk+Cw0hs6LZ8/C56qhMbG3YdBDA8ywVNOe9kA==
+ray-streaming@2.22.1:
+  version "2.22.1"
+  resolved "https://registry.yarnpkg.com/ray-streaming/-/ray-streaming-2.22.1.tgz#78ea9c69bf44726cc2189322058b13fd0ba4a182"
+  integrity sha512-dmsKrfV4yh7ACQBLBsJIh6iAPhr7ArHjxg+xW45wRBUY0DZMm92G0COg/8Lz0g3xiQrCvEo2EymlvSiXONsEdA==
   dependencies:
     resize-observer-polyfill "^1.5.1"
     rxjs "^7.4.0"

@@ -1,6 +1,6 @@
 {
   "name": "live-cat-library",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "This is a component library for [3DCAT](https://www.3dcat.live/)",
   "types": "./src",
   "main": "./live-cat-library.cjs.js",
@@ -52,13 +52,15 @@
   "dependencies": {
     "countup.js": "^2.6.0",
     "js-base64": "^3.7.5",
-    "live-cat": "^1.1.7",
+    "live-cat": "^1.1.8",
     "simple-keyboard": "^3.7.8",
     "simple-keyboard-layouts": "^3.3.11"
   },
   "peerDependencies": {
     "countup.js": "^2.6.0",
     "js-base64": "^3.7.5",
-    "live-cat": "^1.1.7"
+    "live-cat": "^1.1.8",
+    "simple-keyboard": "^3.7.8",
+    "simple-keyboard-layouts": "^3.3.11"
   }
 }

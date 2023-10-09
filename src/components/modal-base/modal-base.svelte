@@ -6,6 +6,7 @@
   export let hideCancel = false
   export let onConfirm = () => {}
   export let onClose = () => {}
+  export let onCancel = () => {}
   export let okText = '确认'
   export let cancelText = '取消'
 </script>
@@ -23,7 +24,7 @@
     <div class="content"><slot /></div>
     <div class="action">
       {#if !hideCancel}
-        <div aria-hidden="true" on:click={onClose} class="button-base outlined-button">
+        <div aria-hidden="true" on:click={onCancel} class="button-base outlined-button">
           {cancelText}
         </div>
       {/if}

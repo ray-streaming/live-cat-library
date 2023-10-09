@@ -3,12 +3,16 @@
   import { Keyboard as KeyboardEvent, TextInput } from 'live-cat'
   import Keyboard from 'simple-keyboard'
   import layout from 'simple-keyboard-layouts/build/layouts/chinese'
-  import { allLayoutKey, defaultLayout, displayDefault } from './virtual-keyboard-config'
-  import type { KeyboardSizeType, languageType } from './virtual-keyboard'
-
+  import {
+    KeyboardSizeType,
+    LanguageType,
+    allLayoutKey,
+    defaultLayout,
+    getKeyboardDisplay,
+  } from './virtual-keyboard-config'
   export let onEvent: (e: ArrayBuffer) => void = () => {}
   export let defaultSize: KeyboardSizeType
-  export let defalutLanguage: languageType
+  export let defaultLanguage: LanguageType
   export let onRef: (ref: HTMLDivElement) => void
   export let onKeyboard: (ins: Keyboard) => void
   export let onClose: () => void
@@ -27,14 +31,18 @@
 
   let keyboardRef: HTMLDivElement
   let keyboard: Keyboard
-  const CnConfig = { ...layout, layout: defaultLayout, display: displayDefault }
+  const CnConfig = {
+    ...layout,
+    layout: defaultLayout,
+    display: getKeyboardDisplay('en'),
+  }
   const EnConfig = {
     ...layout,
     layoutCandidates: null,
     layout: defaultLayout,
-    display: displayDefault,
+    display: getKeyboardDisplay('cn'),
   }
-  $: isCn = displayDefault['{change}'] === '英文'
+  let isCn = defaultLanguage === 'cn'
   onMount(() => {
     keyboard = new Keyboard({
       buttonTheme: [
@@ -48,7 +56,7 @@
       },
       onChange: (input) => onChange(input),
       onKeyPress: (button, event) => onKeyPress(button, event),
-      ...(defalutLanguage === 'cn' ? CnConfig : EnConfig),
+      ...(isCn ? CnConfig : EnConfig),
     })
     onKeyboard(keyboard)
     onRef(keyboardRef)
@@ -66,19 +74,17 @@
   }
 
   const onKeyPress = (button: string, event?: MouseEvent | undefined) => {
-    // 点击关闭
     if (button === '{close}') {
       onClose()
       return false
     } else if (button === '{change}') {
-      // 切换中英文输入法
+      // 切换至英文
       if (keyboard.options.layoutCandidates !== null) {
-        displayDefault['{change}'] = '中文'
-        // 切换至英文
+        isCn = false
         keyboard.setOptions(EnConfig)
       } else {
         // 切换至中文
-        displayDefault['{change}'] = '英文'
+        isCn = true
         keyboard.setOptions(CnConfig)
       }
     } else if (KeyValueMapCode.get(button)) {
@@ -97,9 +103,9 @@
     }
     if (button === '{shift}' || button === '{lock}') handleShift()
 
-    //过滤非普通按键，
+    //过滤非普通按键, {xxx}
     if (!ExcludeNormalRegEx.test(button)) {
-      //中文模式下，禁止发送字母
+      //中文模式下, 禁止发送字母
       if (!isCn || (isCn && !EnglishRegEx.test(button))) {
         onEvent(new TextInput(button).dumps())
       }

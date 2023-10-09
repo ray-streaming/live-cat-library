@@ -75,6 +75,7 @@ interface ExtendUIOptions {
   onShowUserList: (showCastScreenUsers: boolean) => void;
   onRunningOptions: (opt: OnRunningOptions) => void;
   terminalMultiOpen: boolean;
+  phaseTextMap?: Map<Phase, [number, string]>
 }
 
 export type ExtendBaseOptions = BaseOptionsType & { onlyRecvInstruction?: boolean }
@@ -90,6 +91,7 @@ export class LauncherPrivateUI {
     onRemoteConfig: () => { },
     onRunningOptions: () => { },
     terminalMultiOpen: false,
+    phaseTextMap: undefined,
     ...LoadingComponent.defaultOptions,
   };
   loading: LoadingComponent;
@@ -121,7 +123,7 @@ export class LauncherPrivateUI {
 
     this.loading = new LoadingComponent(
       this.hostElement,
-      { showDefaultLoading: false },
+      { showDefaultLoading: false, phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
       (cb: OnChange) => {
         this.extendUIOptions.onChange(cb);
       }
@@ -294,7 +296,7 @@ export class LauncherPrivateUI {
     //重新loading
     this.loading = new LoadingComponent(
       this.hostElement,
-      { showDefaultLoading: false },
+      { showDefaultLoading: false, phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
       (cb: OnChange) => {
         this.extendUIOptions.onChange(cb);
       }
@@ -495,7 +497,7 @@ export class LauncherPrivateUI {
 
           onMount: (ele: HTMLElement) => {
             this.options?.onMount && this.options.onMount(ele)
-            new ImeSwitch({ target: ele, props: { connection: this.launcherBase?.connection! } })
+            // new ImeSwitch({ target: ele, props: { connection: this.launcherBase?.connection! } })
             if (!isTouch()) {
               this.displayModeComponent
                 = new DisplayModeModal({
@@ -651,7 +653,7 @@ export class LauncherPrivateUI {
 
       this.loading = new LoadingComponent(
         this.hostElement,
-        {},
+        { phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
         (cb: OnChange) => {
           this.extendUIOptions.onChange(cb);
         }

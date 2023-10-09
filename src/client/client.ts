@@ -25,7 +25,7 @@ function stringifyQuery(query: any) {
     .join("&");
 }
 export class Client {
-  constructor(private address: string) {}
+  constructor(private address: string) { }
   async statusPrivate(params: {
     token?: string;
     runningId: number;
@@ -42,15 +42,14 @@ export class Client {
         if (res.result && res.data.coturns) {
           try {
             res.data.coturns = iceParse(res.data.coturns);
-          } catch (_) {}
+          } catch (_) { }
         }
         return res;
       });
   }
   async status(taskId: number, token?: number): Promise<StatusResponse> {
     return fetch(
-      `${this.address}/api/3dcat/application/running/status/${taskId}${
-        !!token ? `?token=${token}` : ""
+      `${this.address}/api/3dcat/application/running/status/${taskId}${!!token ? `?token=${token}` : ""
       }`,
       {
         method: "GET",
@@ -61,7 +60,7 @@ export class Client {
         if (res.result && res.data.coturns) {
           try {
             res.data.coturns = iceParse(res.data.coturns);
-          } catch (_) {}
+          } catch (_) { }
         }
         return res;
       });
@@ -172,7 +171,7 @@ export class Client {
               browserIco,
               logo,
             };
-          } catch (_) {}
+          } catch (_) { }
         }
         return res;
       });
@@ -245,7 +244,7 @@ export class Client {
         toolbarLogo,
         loadingImage,
       };
-    } catch (_) {}
+    } catch (_) { }
     return res;
   }
 }

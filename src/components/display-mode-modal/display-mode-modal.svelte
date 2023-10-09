@@ -18,6 +18,11 @@
   {show}
   title="显示模式"
   onClose={() => {
+    tempDisplayMode = displayMode
+    show = false
+  }}
+  onCancel={() => {
+    tempDisplayMode = displayMode
     show = false
   }}
   onConfirm={() => {
@@ -49,9 +54,9 @@
   }
 
   .optionLabel {
-    width: 61px;
-    height: 30px;
-    line-height: 30px;
+    width: 86px;
+    height: 40px;
+    line-height: 40px;
     border-radius: 4px;
     cursor: pointer;
     background-color: rgba(255, 255, 255, 0.24);
@@ -61,6 +66,6 @@
   .optionLabel.active {
     cursor: auto;
     color: #338ef6;
-    background-color: #D7E6FF;
+    background-color: #d7e6ff;
   }
 </style>

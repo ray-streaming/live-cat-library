@@ -13,6 +13,7 @@ export interface Options {
   loadingBgImage: { portrait: string; landscape: string };
   loadingBarImage: string | HTMLImageElement;
   showDefaultLoading: boolean;
+  showLoadingBarLogo: boolean
   showFakePercent: boolean;
 
   phaseChanged: boolean;
@@ -32,6 +33,7 @@ export class LoadingComponent {
     loadingBgImage: { portrait: "", landscape: "" },
     loadingBarImage: "",
     showDefaultLoading: true,
+    showLoadingBarLogo: true,
     showFakePercent: true,
 
     phaseChanged: true,
@@ -80,6 +82,7 @@ export class LoadingComponent {
       loadingImage,
       loadingBgImage,
       showDefaultLoading,
+      showLoadingBarLogo,
       loadingBarImage,
     } = this.options;
 
@@ -90,7 +93,8 @@ export class LoadingComponent {
         loadingImage,
         loadingBgImage,
         loadingBarImage,
-        showDefaultLoading: showDefaultLoading ?? false,
+        showDefaultLoading,
+        showLoadingBarLogo
       },
     });
     currentPercentNum.subscribe((percent) => {

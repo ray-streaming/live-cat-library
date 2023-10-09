@@ -15,6 +15,7 @@
   export let loadingBgImage: Options['loadingBgImage']
   export let loadingBarImage: string | HTMLImageElement
   export let showDefaultLoading: boolean
+  export let showLoadingBarLogo: boolean = true
   $: currentLoadingBgImage =
     $windowOrientation === 'landscape' ? loadingBgImage.landscape : loadingBgImage.portrait
   $: backgroundStyle = !!currentLoadingBgImage
@@ -31,7 +32,7 @@
       "
     >
       {#if !!currentLoadingBgImage}
-        <LoadingBar {loadingBarImage}>
+        <LoadingBar {loadingBarImage} {showLoadingBarLogo}>
           <LoadingText />
         </LoadingBar>
       {:else if loadingImage}

@@ -154,6 +154,11 @@ export enum Status {
   Stopped = 60, //运行结束
 }
 
+export enum KeyboardType {
+  Virtual = 1,
+  Local
+}
+
 export interface StatusInterface {
   status: Status;
   coturns: RTCIceServer[];
@@ -192,6 +197,7 @@ export type InitializeConfigType = {
   isFullScreen: boolean; //是否自动全屏
   isReconnectEnabled: boolean; //是否自动重连
   terminalMultiOpen: boolean;
+  keyboardType: KeyboardType//
 };
 
 /**
