@@ -129,9 +129,9 @@ export default (cliArgs) => {
   const OUTPUT_PATH = MODE_PROD
     ? "build"
     : path.join(
-      configDebugPath || "example/live-cat-library-debug-page",
+      // configDebugPath || "example/live-cat-library-debug-page",
       // configDebugPath || "../3dcat-player-gather",
-      // configDebugPath || "../3dcat-privatization-player",
+      configDebugPath || "../3dcat-privatization-player",
       // configDebugPath || "../3dcat-external-jssdk-gather",
       "node_modules"
     );

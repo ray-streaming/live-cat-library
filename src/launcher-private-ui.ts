@@ -1,9 +1,10 @@
-import { LauncherBase } from "live-cat";
+import { LauncherBase, MoveType } from "live-cat";
 import type { Options } from "live-cat/types/launcher-base";
 import { Client } from "./client";
-import type {
+import {
   BaseOptionsType,
   DesignInfo,
+  KeyboardType,
   LandscapeType,
   PrivateStartInfo,
   StatusPrivateInterface,
@@ -32,9 +33,12 @@ import { PrivateReport } from "./utils/private-report";
 import { FastTouchSideEffect } from "./utils/helper";
 import { LiveStart, LiveStop, LiveURL } from "./utils/extend-adapter";
 import { KeepActiveHelper } from "./utils/keek-active-helper";
-import ImeSwitch from "./components/ime-switch/ime-switch.svelte";
 import DisplayModeModal from "./components/display-mode-modal/display-mode-modal.svelte";
-import { displayModeIcon } from "./utils/extend-static-assets";
+import { displayModeIcon, displayPointerIcon } from "./utils/extend-static-assets";
+import { VirtualKeyboardComponent } from "./components/virtual-keyboard/virtual-keyboard";
+import { FakeImeInputComponent } from "./components/fake-ime-input";
+import { ImeSwitchComponent } from "./components/ime-switch/ime-switch";
+import { HandlerPointerMode } from "./utils/pointer-mode-toggle";
 
 enum VirtualControlDisplayType {
   HideAll = 0,
@@ -75,6 +79,7 @@ interface ExtendUIOptions {
   onShowUserList: (showCastScreenUsers: boolean) => void;
   onRunningOptions: (opt: OnRunningOptions) => void;
   terminalMultiOpen: boolean;
+  keyboardType: KeyboardType
   phaseTextMap?: Map<Phase, [number, string]>
 }
 
@@ -91,6 +96,7 @@ export class LauncherPrivateUI {
     onRemoteConfig: () => { },
     onRunningOptions: () => { },
     terminalMultiOpen: false,
+    keyboardType: KeyboardType.Virtual,
     phaseTextMap: undefined,
     ...LoadingComponent.defaultOptions,
   };
@@ -110,6 +116,7 @@ export class LauncherPrivateUI {
   private token?: string;
   private keepActiveHelper?: KeepActiveHelper
   private displayModeComponent?: DisplayModeModal
+  private handlerPointerMode?: HandlerPointerMode
   constructor(
     protected baseOptions: ExtendBaseOptions,
     protected hostElement: HTMLElement,
@@ -373,7 +380,9 @@ export class LauncherPrivateUI {
       defaultBitrate,
       userList,
       needLandscape,
-      landscapeType
+      landscapeType,
+      keyboardType,
+      openMultiTouch
     } = data;
     keyboardMappingConfig =
       keyboardMappingConfig &&
@@ -385,6 +394,7 @@ export class LauncherPrivateUI {
       : InputHoverButton.Hide;
 
     document.title = appName;
+    this.extendUIOptions.keyboardType = this.options?.keyboardType ?? keyboardType
     this.extendUIOptions.onRemoteConfig(data)
     this.extendUIOptions.onShowUserList(userList);
 
@@ -395,6 +405,7 @@ export class LauncherPrivateUI {
       ...LauncherBase.defaultOptions,
       ...this.options,
       isFullScreen: this.options?.isFullScreen ?? false,
+      openMultiTouch: this.options?.openMultiTouch ?? openMultiTouch,
       needLandscape: this.options?.needLandscape ?? needLandscape!,
       settingHoverButton: this.options?.settingHoverButton ?? display!,
       keyboardMappingConfig:
@@ -404,8 +415,8 @@ export class LauncherPrivateUI {
       minBitrate: this.options?.minBitrate ?? bitrate,
       maxBitrate: this.options?.maxBitrate ?? bitrate,
       startBitrate: this.options?.startBitrate ?? bitrate,
-      disablePointerManager: this.options?.disablePointerManager ?? true,
-      disablePointerLock: this.options?.disablePointerLock ?? true,
+      disablePointerManager: true,//写死，猫头接替处理这部分逻辑
+      disablePointerLock: true,//写死，猫头接替处理这部分逻辑
       landscapeType: this.options?.landscapeType ?? landscapeType!,
     };
   }
@@ -439,6 +450,26 @@ export class LauncherPrivateUI {
     this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
   }
+
+  private handlerMountIme(ele: HTMLElement) {
+    if (isTouch()) {
+      if (this.extendUIOptions?.keyboardType === KeyboardType.Virtual) {
+        new VirtualKeyboardComponent(ele,
+          {
+            onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
+          }).connect(this.launcherBase?.connection)
+      } else {
+        new FakeImeInputComponent(ele,
+          {
+            onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
+          }).connect(this.launcherBase?.connection)
+      }
+    } else {
+      new ImeSwitchComponent(ele, { onEvent: (ev) => this.launcherBase?.connection.send(ev, true) }).connect(this.launcherBase?.connection)
+    }
+
+  }
+
   private waitForRunning = async (
     runningId: number,
     token?: string
@@ -492,12 +523,24 @@ export class LauncherPrivateUI {
                   this.displayModeComponent!.show = true
                 },
               },
+              {
+                icon: displayPointerIcon,
+                text: '鼠标模式',
+                platform: 1,
+                order: 2,
+                onClick: () => {
+                  this.handlerPointerMode?.toggle(() => {
+                    //TODO：鼠标模式，在观看端无权限时候应该禁止切换
+                    this.launcherBase!.runningState.mouseMoveType = MoveType.Passive
+                  })
+                },
+              },
             ])
           },
 
           onMount: (ele: HTMLElement) => {
             this.options?.onMount && this.options.onMount(ele)
-            // new ImeSwitch({ target: ele, props: { connection: this.launcherBase?.connection! } })
+            this.handlerMountIme(ele)
             if (!isTouch()) {
               this.displayModeComponent
                 = new DisplayModeModal({
@@ -527,6 +570,7 @@ export class LauncherPrivateUI {
             }
             if (phase === 'signaling-connected') {
               this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
+              this.handlerPointerMode = new HandlerPointerMode(this.launcherBase?.player.video!, this.launcherBase?.connection!, false)
             }
 
             if (phase === "streaming-ready" && !isAutoLoadingVideo) {

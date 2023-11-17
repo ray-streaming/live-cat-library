@@ -32,6 +32,7 @@ export interface PrivateStartInfo {
   terminalMultiOpen: boolean; //支持多开重连
   accessDurationLimit?: number //试用时长/min
   landscapeType: LandscapeType; //初始化显示模式，私有化pc、移动端同时生效，公有云仅移动端生效
+  keyboardType: KeyboardType//键盘类型
 }
 
 export interface CommonResponse<T = any> {
@@ -197,7 +198,7 @@ export type InitializeConfigType = {
   isFullScreen: boolean; //是否自动全屏
   isReconnectEnabled: boolean; //是否自动重连
   terminalMultiOpen: boolean;
-  keyboardType: KeyboardType//
+  keyboardType: KeyboardType//键盘类型
 };
 
 /**
