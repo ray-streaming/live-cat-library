@@ -213,7 +213,8 @@ export class LauncherUI {
       token,
       isFullScreen,
       openMicrophone,
-      keyboardType
+      keyboardType,
+      toolbarLogo
     } = data;
     this.tempOption = data;
     document.title = appName;
@@ -238,6 +239,7 @@ export class LauncherUI {
 
       disablePointerManager: this.options?.disablePointerManager ?? true,
       disablePointerLock: this.options?.disablePointerLock ?? true,
+      toolbarLogo: this.options?.toolbarLogo! ?? toolbarLogo,
     };
 
     this.loading.loadingComponent.loadingImage =
