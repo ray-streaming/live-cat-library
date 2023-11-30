@@ -52,7 +52,7 @@
   "dependencies": {
     "countup.js": "^2.6.0",
     "js-base64": "^3.7.5",
-    "live-cat": "^1.1.8",
+    "live-cat": "^1.1.9",
     "simple-keyboard": "^3.7.8",
     "simple-keyboard-layouts": "^3.3.11"
   },

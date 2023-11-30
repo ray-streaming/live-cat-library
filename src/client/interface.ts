@@ -1,4 +1,7 @@
-import type { StartType } from "live-cat/types/launcher-base";
+export enum StartType {
+  NormalMode = 1,
+  ScreenMode = 3
+}
 export enum RateLevel {
   SD,
   HD,

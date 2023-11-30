@@ -1,5 +1,5 @@
 import { LauncherBase, MoveType } from "live-cat";
-import type { Options } from "live-cat/types/launcher-base";
+import type{ Options } from "live-cat/types/launcher-base";
 import { Client } from "./client";
 import {
   BaseOptionsType,
@@ -7,6 +7,7 @@ import {
   KeyboardType,
   LandscapeType,
   PrivateStartInfo,
+  StartType,
   StatusPrivateInterface,
   StatusResponsePrivate,
 } from "./client/interface";
@@ -39,6 +40,7 @@ import { VirtualKeyboardComponent } from "./components/virtual-keyboard/virtual-
 import { FakeImeInputComponent } from "./components/fake-ime-input";
 import { ImeSwitchComponent } from "./components/ime-switch/ime-switch";
 import { HandlerPointerMode } from "./utils/pointer-mode-toggle";
+import { CheckMultiStatus, ReportEvent } from "./utils/check-multi-status";
 
 enum VirtualControlDisplayType {
   HideAll = 0,
@@ -74,7 +76,7 @@ interface ExtendUIOptions {
   onChange: (cb: OnChange) => void;
   // onQueue: (rank: number) => void;//私有云暂无排队功能
   onLoadingError: (err: LoadingError) => void;
-  onRunningId: (taskId: number) => void;
+  onRunningId: (runningId: number) => void;
   onRemoteConfig: (config: PrivateStartInfo) => void;
   onShowUserList: (showCastScreenUsers: boolean) => void;
   onRunningOptions: (opt: OnRunningOptions) => void;
@@ -114,9 +116,15 @@ export class LauncherPrivateUI {
   private tempOption?: DesignInfo;
   private privateReport?: PrivateReport;
   private token?: string;
+  private runningId?: number
   private keepActiveHelper?: KeepActiveHelper
   private displayModeComponent?: DisplayModeModal
   private handlerPointerMode?: HandlerPointerMode
+  private checkMultiStatus?: CheckMultiStatus
+  // 投屏-观看端(分享)
+  private get isGuest() {
+    return this.baseOptions.startType === StartType.ScreenMode && !this.baseOptions.isCastScreenMaster
+  }
   constructor(
     protected baseOptions: ExtendBaseOptions,
     protected hostElement: HTMLElement,
@@ -237,6 +245,7 @@ export class LauncherPrivateUI {
             if (enabledReconnect) {
               this.autoRetry.initializeRetryInfo(runningId);
             }
+            this.runningId = runningId
             this.enabledReconnect = enabledReconnect;
             this.extendUIOptions.onRunningId(runningId);
             return { runningId, enabledReconnect, token: undefined };
@@ -489,7 +498,57 @@ export class LauncherPrivateUI {
     await sleep(200);
     return await this.waitForRunning(runningId, token);
   };
-
+  private initReportStatus = () => {
+    this.checkMultiStatus = new CheckMultiStatus(
+      new Map([
+        [
+          'signaling_delay',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode(ReportEvent.SignalingDelay, this.runningId!)
+            },
+          },
+        ],
+        [
+          'signaling_failure',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode(ReportEvent.SignalingFailure, this.runningId!)
+            },
+          },
+        ],
+        [
+          'ice',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode(ReportEvent.Ice, this.runningId!)
+            },
+          },
+        ],
+        [
+          'datachannel',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode(ReportEvent.Datachannel, this.runningId!)
+            },
+          },
+        ],
+        [
+          'peer_connection',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode(ReportEvent.PeerConnection, this.runningId!)
+            },
+          },
+        ],
+      ]),
+    )
+  }
   private handlerStatusSwitch = (res: StatusPrivateInterface): void => {
     let { token = "", signaling, coturns, status } = res;
     const socketProtocol = this.location.protocol === "https:" ? "wss:" : "ws:";
@@ -503,6 +562,9 @@ export class LauncherPrivateUI {
           coturns,
           signaling,
         });
+
+        this.initReportStatus()
+
         this.token = token;
         const isAutoLoadingVideo =
           this.options?.autoLoadingVideo ?? !(isWeiXin() && isIOS());
@@ -571,6 +633,23 @@ export class LauncherPrivateUI {
             if (phase === 'signaling-connected') {
               this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
               this.handlerPointerMode = new HandlerPointerMode(this.launcherBase?.player.video!, this.launcherBase?.connection!, false)
+
+              this.checkMultiStatus?.toggleStateChange('signaling_delay', 'connected')
+              this.checkMultiStatus?.toggleStateChange('signaling_failure', 'connected')
+              this.launcherBase?.connection.event.iceStateChange.on((state) => {
+                this.checkMultiStatus?.toggleStateChange('ice', state)
+              })
+              this.launcherBase?.connection.event.dataChannelConnected.on(() => {
+                this.checkMultiStatus?.toggleStateChange('datachannel', 'connected')
+              })
+              this.launcherBase?.connection.event.peerConnectionConnected.on(() => {
+                this.checkMultiStatus?.toggleStateChange('peer_connection', 'connected')
+              })
+              this.launcherBase?.connection.event.ready.on(() => {
+                this.checkMultiStatus?.toggleStateChange('datachannel', 'checking')
+                this.checkMultiStatus?.toggleStateChange('peer_connection', 'checking')
+              })
+
             }
 
             if (phase === "streaming-ready" && !isAutoLoadingVideo) {
@@ -624,12 +703,23 @@ export class LauncherPrivateUI {
           },
         };
 
+        this.checkMultiStatus?.toggleStateChange('signaling_delay', 'checking')
+        this.checkMultiStatus?.toggleStateChange('signaling_failure', 'checking')
         this.launcherBase = new LauncherBase(
           `${signaling}/clientWebsocket/${token}`,
           coturns,
           this.hostElement,
           options
         );
+        try {
+          this.launcherBase.connection.event.disconnect.on(() => {
+            if (!this.checkMultiStatus?.handlerCheckIsStop('signaling_delay')) {
+              this.checkMultiStatus?.handlerEmitCallBack('signaling_delay')
+            }
+          })
+        } catch (error) {
+          console.error(error)
+        }
         break;
       case "failed":
         this.handlerError({

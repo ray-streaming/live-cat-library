@@ -247,4 +247,16 @@ export class Client {
     } catch (_) { }
     return res;
   }
+
+  async reportErrorCode(code: number, runningId: number): Promise<CommonResponse> {
+    const url = `${this.address}/app/running/status/report`
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ abnormalEventDetail: code, runningId }),
+    }).then((response) => response.json())
+  }
+
 }
+
+
