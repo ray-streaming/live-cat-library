@@ -1,3 +1,5 @@
+<svelte:options accessors={true} />
+
 <script lang="ts">
   import { TextInput, Keyboard } from 'live-cat'
   import FakeInput from '../icons/fake-input.svelte'
@@ -6,6 +8,8 @@
   let imeRef: HTMLDivElement
   export let onEvent: (e: ArrayBuffer) => void = () => {}
   export let onRef: (ref: HTMLDivElement) => void
+  export let width: number
+  export let height: number
 
   let inputFlag = true
   const handleChange = (event: any) => {
@@ -40,6 +44,7 @@
 
 <div
   aria-hidden="true"
+  style={`width:${width}px;height:${height}px`}
   class="fake-ime-mobile-container"
   on:click|stopPropagation={() => {
     inputRef.focus()
@@ -69,10 +74,9 @@
 <style>
   .fake-ime-mobile-container {
     position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
     display: none;
     align-items: center;
+    top: 0;
     width: 100%;
     height: 100%;
     flex-flow: column-reverse;

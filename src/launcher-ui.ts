@@ -90,6 +90,8 @@ export class LauncherUI {
   private offline: boolean = false;
   private tempOption?: InitializeConfigType;
   private keepActiveHelper?: KeepActiveHelper
+  private virtualKeyboardComponent?: VirtualKeyboardComponent
+  private fakeImeInputComponent?: FakeImeInputComponent
   constructor(
     protected baseOptions: BaseOptionsType,
     protected hostElement: HTMLElement,
@@ -288,20 +290,25 @@ export class LauncherUI {
   private handlerMountIme(ele: HTMLElement) {
     if (isTouch()) {
       if (this.extendUIOptions?.keyboardType === KeyboardType.Virtual) {
-        new VirtualKeyboardComponent(ele,
+        this.virtualKeyboardComponent = new VirtualKeyboardComponent(ele,
           {
+            width: this.launcherBase?.player.video.clientWidth,
+            height: this.launcherBase?.player.video.clientHeight,
             onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
-          }).connect(this.launcherBase?.connection)
+          })
+        this.virtualKeyboardComponent.connect(this.launcherBase?.connection)
       } else {
-        new FakeImeInputComponent(ele,
+        this.fakeImeInputComponent = new FakeImeInputComponent(ele,
           {
+            width: this.launcherBase?.player.video.clientWidth,
+            height: this.launcherBase?.player.video.clientHeight,
             onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
-          }).connect(this.launcherBase?.connection)
+          })
+        this.fakeImeInputComponent.connect(this.launcherBase?.connection)
       }
     } else {
       new ImeSwitchComponent(ele, { onEvent: (ev) => this.launcherBase?.connection.send(ev, true) }).connect(this.launcherBase?.connection)
     }
-
   }
   private handlerStatusSwitch = (res: StatusInterface): void => {
     let { token = "", signaling, coturns, status, agoraServiceVerify } = res;
@@ -320,11 +327,24 @@ export class LauncherUI {
           });
         const isAutoLoadingVideo =
           this.options?.autoLoadingVideo ?? !(isWeiXin() && isIOS());
-        const options = {
+        const options: Partial<Options> = {
           ...this.diffServerAndDiyOptions,
           autoLoadingVideo: isAutoLoadingVideo,
-          startType: this.baseOptions.startType,
-          onMount: (ele: HTMLElement) => {
+          startType: this.baseOptions.startType!,
+          onRotate: (rotate) => {
+            this.options?.onRotate && this.options.onRotate(rotate)
+            setTimeout(() => {
+              this.virtualKeyboardComponent?.changeSize({
+                width: this.launcherBase?.player.video.clientWidth,
+                height: this.launcherBase?.player.video.clientHeight,
+              })
+              this.fakeImeInputComponent?.changeSize({
+                width: this.launcherBase?.player.video.clientWidth,
+                height: this.launcherBase?.player.video.clientHeight,
+              })
+            }, 200)
+          },
+          onMount: (ele) => {
             this.options?.onMount && this.options.onMount(ele)
             this.handlerMountIme(ele)
           },
@@ -333,7 +353,7 @@ export class LauncherUI {
             //主动退出，清除taskId缓存
             this.autoRetry.clearRetryInfo();
           },
-          onPhaseChange: (phase: Phase, deltaTime: number) => {
+          onPhaseChange: (phase, deltaTime) => {
             this.options?.onPhaseChange &&
               this.options.onPhaseChange(phase, deltaTime);
             this.loading.changePhase(phase);
@@ -384,7 +404,7 @@ export class LauncherUI {
             }
             this.keepActiveHelper?.setKeepAlive()
           },
-          onError: (reason: ErrorState) => {
+          onError: (reason) => {
             this.options?.onError && this.options?.onError(reason);
             this.handlerError({
               code: reason, //Launcher error reason as code

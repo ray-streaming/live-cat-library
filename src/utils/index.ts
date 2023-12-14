@@ -1,5 +1,6 @@
 import type { Connection } from "live-cat";
 import { StatusMap } from "./status-code";
+import type { Phase } from "live-cat/types/launcher-base";
 
 export const isWeiXin = () =>
   navigator.userAgent.includes("miniProgram") ||
@@ -102,3 +103,7 @@ export const handleNormalizeBitrate = (defaultBitrate: number) => {
   const rateLevel = rateMapField.get(defaultBitrate);
   return rateLevel?.value ?? rateMapField.get(RateLevel.HD)!.value;
 };
+
+export const isIncludesPhaseInReport = (phase: Phase) =>
+  ['initial', 'signaling-connected', 'node-ready', 'end-candidate', 'peer-connection-connected', 'data-channel-open'].includes(phase)
+

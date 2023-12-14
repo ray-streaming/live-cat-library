@@ -7,6 +7,8 @@ import { KeyboardSizeType, LanguageType, allLayoutKey } from "./virtual-keyboard
 
 export interface Options {
   onEvent: (e: ArrayBuffer) => void
+  width: number
+  height: number
   defaultSize: KeyboardSizeType
   defaultLanguage: LanguageType
 }
@@ -18,18 +20,37 @@ export class VirtualKeyboardComponent {
   private keyboardRef?: HTMLDivElement
   private sizeNavRef?: HTMLDivElement
   private keyboard?: Keyboard
+  private keyboardNode: HTMLElement
   static defaultOptions: Options = {
     onEvent: () => { },
+    width: 1920,
+    height: 1080,
     defaultSize: 'medium',
     defaultLanguage: 'en'
   };
   constructor(protected readonly container: HTMLElement, options?: Partial<Options>) {
     this.options = { ...VirtualKeyboardComponent.defaultOptions, ...options }
-    const { onEvent, defaultSize, defaultLanguage } = this.options
+    const { onEvent, width, height, defaultSize, defaultLanguage } = this.options
+    this.keyboardNode = document.createElement('div')
+    this.keyboardNode.style.height = height + 'px'
+    this.keyboardNode.style.width = '0px'
+    container.appendChild(this.keyboardNode)
+
+    this.SizeNavComponent = new SizeNav({
+      target: this.keyboardNode,
+      props: {
+        width,
+        defaultSize,
+        onRef: (ref: HTMLDivElement) => { this.sizeNavRef = ref },
+        changeKeyboardSize: (type: KeyboardSizeType) => { this.changeKeyboardSize(type) }
+      }
+    })
+
     this.virtualKeyboardComponent = new VirtualKeyboard({
-      target: container,
+      target: this.keyboardNode,
       props: {
         onEvent,
+        width,
         defaultSize,
         defaultLanguage,
         onRef: (ref: HTMLDivElement) => { this.keyboardRef = ref },
@@ -37,14 +58,7 @@ export class VirtualKeyboardComponent {
         onClose: () => this.inactive()
       }
     })
-    this.SizeNavComponent = new SizeNav({
-      target: container,
-      props: {
-        defaultSize,
-        onRef: (ref: HTMLDivElement) => { this.sizeNavRef = ref },
-        changeKeyboardSize: (type: KeyboardSizeType) => { this.changeKeyboardSize(type) }
-      }
-    })
+
   }
   changeKeyboardSize(size: KeyboardSizeType) {
     this.keyboard?.setOptions({
@@ -55,6 +69,11 @@ export class VirtualKeyboardComponent {
         },
       ],
     })
+  }
+  changeSize({ width = this.options.width, height = this.options.height }) {
+    this.keyboardNode.style.height = height + 'px'
+    this.SizeNavComponent.width = width
+    this.virtualKeyboardComponent.width = width
   }
   active() {
     this.keyboardRef!.style.display = 'flex';

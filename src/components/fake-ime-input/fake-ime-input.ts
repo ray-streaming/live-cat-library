@@ -5,6 +5,8 @@ import { EventType, dataChannelMsgSorter } from "../../utils/extend-adapter";
 
 export interface Options {
   onEvent: (e: ArrayBuffer) => void
+  width: number
+  height: number
 }
 
 export class FakeImeInputComponent {
@@ -13,19 +15,26 @@ export class FakeImeInputComponent {
   private imeRef?: HTMLDivElement
   static defaultOptions: Options = {
     onEvent: () => { },
+    width: 1920,
+    height: 1080,
   };
   constructor(protected readonly container: HTMLElement, options?: Partial<Options>) {
     this.options = { ...FakeImeInputComponent.defaultOptions, ...options }
-    const { onEvent } = this.options
+    const { onEvent, width, height } = this.options
     this.fakeImeInputComponent = new FakeImeInput__SvelteComponent_({
       target: container,
       props: {
         onEvent,
+        width,
+        height,
         onRef: (ref: HTMLDivElement) => { this.imeRef = ref },
       }
     })
   }
-
+  changeSize({ width = this.options.width, height = this.options.height }) {
+    this.fakeImeInputComponent.width = width
+    this.fakeImeInputComponent.height = height
+  }
   active() {
     this.imeRef!.style.display = 'flex';
   }

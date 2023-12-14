@@ -1,7 +1,9 @@
+<svelte:options accessors={true} />
 <script lang="ts">
   import { onMount } from 'svelte'
   import { keyboardSizeOption, type KeyboardSizeType } from './virtual-keyboard-config'
 
+  export let width: number
   export let defaultSize: KeyboardSizeType
   export let changeKeyboardSize: (type: KeyboardSizeType) => void
   export let onRef: (ref: HTMLDivElement) => void
@@ -12,22 +14,27 @@
   })
 </script>
 
-<div class="size-nav" bind:this={sizeNavRef}>
-  <div class="size-nav-tip">键盘大小:</div>
-  {#each keyboardSizeOption as size}
-    <span
-      class="size-item"
-      aria-hidden="true"
-      class:active={defaultSize === size.type}
-      on:click|stopPropagation={() => {
-        defaultSize = size.type
-        changeKeyboardSize(size.type)
-      }}>{size.label}</span
-    >
-  {/each}
+<div class="simple-keyboard-size-nav" style="width:{width}px">
+  <div class="size-nav" bind:this={sizeNavRef}>
+    <div class="size-nav-tip">键盘大小:</div>
+    {#each keyboardSizeOption as size}
+      <span
+        class="size-item"
+        aria-hidden="true"
+        class:active={defaultSize === size.type}
+        on:click|stopPropagation={() => {
+          defaultSize = size.type
+          changeKeyboardSize(size.type)
+        }}>{size.label}</span
+      >
+    {/each}
+  </div>
 </div>
 
 <style>
+  .simple-keyboard-size-nav {
+    position: absolute;
+  }
   .size-nav {
     border-radius: 4px;
     overflow: hidden;

@@ -13,7 +13,7 @@ function bootstrap() {
     // },
     {
       address: "https://app-pre.3dcat.live:14431",
-      appKey: "48bQWHgMW7rkLw0r",
+      appKey: "RGNVhOCSAWJGsQfr",
       startType: 1,
     },
     hostElement,

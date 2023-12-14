@@ -1,3 +1,4 @@
+import type { Phase } from "live-cat/types/launcher-base";
 import type { ExtendBaseOptions } from "../launcher-private-ui";
 import { iceParse, isTouch } from "../utils";
 import type {
@@ -248,12 +249,14 @@ export class Client {
     return res;
   }
 
-  async reportErrorCode(code: number, runningId: number): Promise<CommonResponse> {
+
+  async reportErrorCode(param: { phase: Phase, code?: number, runningId: number, }): Promise<CommonResponse> {
+    const { phase, code, runningId } = param
     const url = `${this.address}/app/running/status/report`
     return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ abnormalEventDetail: code, runningId }),
+      body: JSON.stringify({ runningId, schedule: phase, abnormalEventDetail: code }),
     }).then((response) => response.json())
   }
 

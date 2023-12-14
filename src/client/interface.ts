@@ -1,3 +1,5 @@
+import type { StatusEndType } from "../utils/status-code-private";
+
 export enum StartType {
   NormalMode = 1,
   ScreenMode = 3
@@ -175,6 +177,7 @@ export interface StatusInterface {
 export interface StatusPrivateInterface
   extends Omit<StatusInterface, "status"> {
   status: string;
+  endType: StatusEndType
 }
 export type StatusResponse = CommonResponse<StatusInterface>;
 export type StatusResponsePrivate = CommonResponse<StatusPrivateInterface>;

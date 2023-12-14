@@ -1,3 +1,4 @@
+<svelte:options accessors={true} />
 <script lang="ts">
   import { onDestroy, onMount } from 'svelte'
   import { Keyboard as KeyboardEvent, TextInput } from 'live-cat'
@@ -11,6 +12,7 @@
     getKeyboardDisplay,
   } from './virtual-keyboard-config'
   export let onEvent: (e: ArrayBuffer) => void = () => {}
+  export let width: number
   export let defaultSize: KeyboardSizeType
   export let defaultLanguage: LanguageType
   export let onRef: (ref: HTMLDivElement) => void
@@ -138,7 +140,7 @@
   }
 </script>
 
-<div class="simple-keyboard-container" bind:this={keyboardRef}>
+<div style="width:{width}px" class="simple-keyboard-container" bind:this={keyboardRef}>
   <div class="simple-keyboard" />
 </div>
 

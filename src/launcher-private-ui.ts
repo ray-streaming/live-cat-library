@@ -1,5 +1,5 @@
 import { LauncherBase, MoveType } from "live-cat";
-import type{ Options } from "live-cat/types/launcher-base";
+import type { Options } from "live-cat/types/launcher-base";
 import { Client } from "./client";
 import {
   BaseOptionsType,
@@ -18,6 +18,7 @@ import {
   handleNormalizeBitrate,
   isAndroid,
   isIOS,
+  isIncludesPhaseInReport,
   isTouch,
   isWeiXin,
   sleep,
@@ -27,7 +28,7 @@ import { autoLoadingVideoHandler, autoLoadingVideo } from "./store";
 import { ErrorStateMap } from "./utils/error-profile";
 import type { Phase } from "live-cat/types/launcher-base";
 import type { ErrorState } from "live-cat/types/launcher-base";
-import { StatusMap } from "./utils/status-code-private";
+import { StatusEndMap, StatusMap } from "./utils/status-code-private";
 import type { Options as loadingOptions } from "./loading/loading";
 import { AutoRetry, StorageType } from "./utils/auto-retry";
 import { PrivateReport } from "./utils/private-report";
@@ -121,6 +122,13 @@ export class LauncherPrivateUI {
   private displayModeComponent?: DisplayModeModal
   private handlerPointerMode?: HandlerPointerMode
   private checkMultiStatus?: CheckMultiStatus
+  private phase?: Phase
+  private virtualKeyboardComponent?: VirtualKeyboardComponent
+  private fakeImeInputComponent?: FakeImeInputComponent
+  private get isAutoLoadingVideo() {
+    return this.options?.autoLoadingVideo ?? !(isWeiXin() && isIOS())
+  }
+
   // 投屏-观看端(分享)
   private get isGuest() {
     return this.baseOptions.startType === StartType.ScreenMode && !this.baseOptions.isCastScreenMaster
@@ -273,6 +281,7 @@ export class LauncherPrivateUI {
             if (enabledReconnect && this.baseOptions.startType === 1) {
               this.autoRetry.initializeRetryInfo(runningId);
             }
+            this.runningId = runningId
             this.enabledReconnect = enabledReconnect;
             this.extendUIOptions.onRunningId(runningId);
             return { token, runningId, enabledReconnect };
@@ -463,20 +472,25 @@ export class LauncherPrivateUI {
   private handlerMountIme(ele: HTMLElement) {
     if (isTouch()) {
       if (this.extendUIOptions?.keyboardType === KeyboardType.Virtual) {
-        new VirtualKeyboardComponent(ele,
+        this.virtualKeyboardComponent = new VirtualKeyboardComponent(ele,
           {
+            width: this.launcherBase?.player.video.clientWidth,
+            height: this.launcherBase?.player.video.clientHeight,
             onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
-          }).connect(this.launcherBase?.connection)
+          })
+        this.virtualKeyboardComponent.connect(this.launcherBase?.connection)
       } else {
-        new FakeImeInputComponent(ele,
+        this.fakeImeInputComponent = new FakeImeInputComponent(ele,
           {
+            width: this.launcherBase?.player.video.clientWidth,
+            height: this.launcherBase?.player.video.clientHeight,
             onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
-          }).connect(this.launcherBase?.connection)
+          })
+        this.fakeImeInputComponent.connect(this.launcherBase?.connection)
       }
     } else {
       new ImeSwitchComponent(ele, { onEvent: (ev) => this.launcherBase?.connection.send(ev, true) }).connect(this.launcherBase?.connection)
     }
-
   }
 
   private waitForRunning = async (
@@ -491,7 +505,8 @@ export class LauncherPrivateUI {
     if (
       res.data.status === "running" ||
       res.data.status === "failed" ||
-      res.data.status === "stopped"
+      res.data.status === "stopped" ||
+      !res.data.status
     ) {
       return res.data;
     }
@@ -506,7 +521,7 @@ export class LauncherPrivateUI {
           {
             callback: () => {
               !this.isGuest &&
-                this.client.reportErrorCode(ReportEvent.SignalingDelay, this.runningId!)
+                this.client.reportErrorCode({ code: ReportEvent.SignalingDelay, runningId: this.runningId!, phase: this.phase! })
             },
           },
         ],
@@ -515,7 +530,7 @@ export class LauncherPrivateUI {
           {
             callback: () => {
               !this.isGuest &&
-                this.client.reportErrorCode(ReportEvent.SignalingFailure, this.runningId!)
+                this.client.reportErrorCode({ code: ReportEvent.SignalingFailure, runningId: this.runningId!, phase: this.phase! })
             },
           },
         ],
@@ -524,7 +539,7 @@ export class LauncherPrivateUI {
           {
             callback: () => {
               !this.isGuest &&
-                this.client.reportErrorCode(ReportEvent.Ice, this.runningId!)
+                this.client.reportErrorCode({ code: ReportEvent.Ice, runningId: this.runningId!, phase: this.phase! })
             },
           },
         ],
@@ -533,7 +548,7 @@ export class LauncherPrivateUI {
           {
             callback: () => {
               !this.isGuest &&
-                this.client.reportErrorCode(ReportEvent.Datachannel, this.runningId!)
+                this.client.reportErrorCode({ code: ReportEvent.Datachannel, runningId: this.runningId!, phase: this.phase! })
             },
           },
         ],
@@ -542,15 +557,48 @@ export class LauncherPrivateUI {
           {
             callback: () => {
               !this.isGuest &&
-                this.client.reportErrorCode(ReportEvent.PeerConnection, this.runningId!)
+                this.client.reportErrorCode({ code: ReportEvent.PeerConnection, runningId: this.runningId!, phase: this.phase! })
             },
           },
         ],
       ]),
     )
   }
+  private handlerExtendActionInPhaseChange = (phase: Phase) => {
+    if (phase === 'loaded-metadata') {
+      this.keepActiveHelper?.resendKeyFrame()
+    }
+    if (phase === 'signaling-connected') {
+      this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
+      this.handlerPointerMode = new HandlerPointerMode(this.launcherBase?.player.video!, this.launcherBase?.connection!, false)
+
+      this.checkMultiStatus?.toggleStateChange('signaling_delay', 'connected')
+      this.checkMultiStatus?.toggleStateChange('signaling_failure', 'connected')
+      this.launcherBase?.connection.event.iceStateChange.on((state) => {
+        this.checkMultiStatus?.toggleStateChange('ice', state)
+      })
+      this.launcherBase?.connection.event.dataChannelConnected.on(() => {
+        this.checkMultiStatus?.toggleStateChange('datachannel', 'connected')
+      })
+      this.launcherBase?.connection.event.peerConnectionConnected.on(() => {
+        this.checkMultiStatus?.toggleStateChange('peer_connection', 'connected')
+      })
+      this.launcherBase?.connection.event.ready.on(() => {
+        this.checkMultiStatus?.toggleStateChange('datachannel', 'checking')
+        this.checkMultiStatus?.toggleStateChange('peer_connection', 'checking')
+      })
+    }
+
+    if (phase === "streaming-ready" && !this.isAutoLoadingVideo) {
+      autoLoadingVideo.set(false);
+      autoLoadingVideoHandler.set(() => {
+        this.launcherBase?.resumeVideoStream();
+      });
+      this.keepActiveHelper?.clearResendTimer()
+    }
+  }
   private handlerStatusSwitch = (res: StatusPrivateInterface): void => {
-    let { token = "", signaling, coturns, status } = res;
+    let { token = "", signaling, coturns, status, endType } = res;
     const socketProtocol = this.location.protocol === "https:" ? "wss:" : "ws:";
     const host = this.location.host;
     signaling = `${socketProtocol}//${host}`;
@@ -566,12 +614,9 @@ export class LauncherPrivateUI {
         this.initReportStatus()
 
         this.token = token;
-        const isAutoLoadingVideo =
-          this.options?.autoLoadingVideo ?? !(isWeiXin() && isIOS());
-
-        const options = {
+        const options: Partial<Options> = {
           ...this.diffServerAndDiyOptions,
-          autoLoadingVideo: isAutoLoadingVideo,
+          autoLoadingVideo: this.isAutoLoadingVideo,
           toolbarLogo: this.options?.toolbarLogo ?? this.toolbarLogo,
           startType: this.baseOptions.startType,
           toolOption: {
@@ -599,8 +644,20 @@ export class LauncherPrivateUI {
               },
             ])
           },
-
-          onMount: (ele: HTMLElement) => {
+          onRotate: (rotate) => {
+            this.options?.onRotate && this.options.onRotate(rotate)
+            setTimeout(() => {
+              this.virtualKeyboardComponent?.changeSize({
+                width: this.launcherBase?.player.video.clientWidth,
+                height: this.launcherBase?.player.video.clientHeight,
+              })
+              this.fakeImeInputComponent?.changeSize({
+                width: this.launcherBase?.player.video.clientWidth,
+                height: this.launcherBase?.player.video.clientHeight,
+              })
+            }, 200)
+          },
+          onMount: (ele) => {
             this.options?.onMount && this.options.onMount(ele)
             this.handlerMountIme(ele)
             if (!isTouch()) {
@@ -621,44 +678,18 @@ export class LauncherPrivateUI {
             this.options?.onQuit && this.options.onQuit();
             //主动退出，清除taskId/runningId缓存
             this.autoRetry.clearRetryInfo();
+            this.destroy()
           },
-          onPhaseChange: (phase: Phase, deltaTime: number) => {
+          onPhaseChange: (phase, deltaTime) => {
             this.options?.onPhaseChange &&
               this.options.onPhaseChange(phase, deltaTime);
             this.loading.changePhase(phase);
-
-            if (phase === 'loaded-metadata') {
-              this.keepActiveHelper?.resendKeyFrame()
+            if (isIncludesPhaseInReport(phase)) {
+              this.phase = phase
+              !this.isGuest &&
+                this.client.reportErrorCode({ runningId: this.runningId!, phase: this.phase! })
             }
-            if (phase === 'signaling-connected') {
-              this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
-              this.handlerPointerMode = new HandlerPointerMode(this.launcherBase?.player.video!, this.launcherBase?.connection!, false)
-
-              this.checkMultiStatus?.toggleStateChange('signaling_delay', 'connected')
-              this.checkMultiStatus?.toggleStateChange('signaling_failure', 'connected')
-              this.launcherBase?.connection.event.iceStateChange.on((state) => {
-                this.checkMultiStatus?.toggleStateChange('ice', state)
-              })
-              this.launcherBase?.connection.event.dataChannelConnected.on(() => {
-                this.checkMultiStatus?.toggleStateChange('datachannel', 'connected')
-              })
-              this.launcherBase?.connection.event.peerConnectionConnected.on(() => {
-                this.checkMultiStatus?.toggleStateChange('peer_connection', 'connected')
-              })
-              this.launcherBase?.connection.event.ready.on(() => {
-                this.checkMultiStatus?.toggleStateChange('datachannel', 'checking')
-                this.checkMultiStatus?.toggleStateChange('peer_connection', 'checking')
-              })
-
-            }
-
-            if (phase === "streaming-ready" && !isAutoLoadingVideo) {
-              autoLoadingVideo.set(false);
-              autoLoadingVideoHandler.set(() => {
-                this.launcherBase?.resumeVideoStream();
-              });
-              this.keepActiveHelper?.clearResendTimer()
-            }
+            this.handlerExtendActionInPhaseChange(phase)
           },
           onPlay: () => {
             this.options?.onPlay && this.options?.onPlay();
@@ -691,7 +722,7 @@ export class LauncherPrivateUI {
               this.launcherBase?.player.handleChangeLandscapeType(this.diffServerAndDiyOptions?.landscapeType!)
             }
           },
-          onError: (reason: ErrorState) => {
+          onError: (reason) => {
             this.options?.onError && this.options?.onError(reason);
             this.handlerError({
               code: reason, //Launcher error reason as code
@@ -705,6 +736,8 @@ export class LauncherPrivateUI {
 
         this.checkMultiStatus?.toggleStateChange('signaling_delay', 'checking')
         this.checkMultiStatus?.toggleStateChange('signaling_failure', 'checking')
+        !this.isGuest &&
+          this.client.reportErrorCode({ runningId: this.runningId!, phase: 'initial' })
         this.launcherBase = new LauncherBase(
           `${signaling}/clientWebsocket/${token}`,
           coturns,
@@ -725,21 +758,21 @@ export class LauncherPrivateUI {
         this.handlerError({
           code: "failed",
           type: "task",
-          reason: "节点资源不足，勿刷新页面，请稍后重新进入",
+          reason: StatusEndMap.get(endType) ?? '运行结束',
         });
         break;
       case "stopped":
         this.handlerError({
           code: "stopped",
           type: "task",
-          reason: "运行结束，勿刷新页面，请重新进入",
+          reason: StatusEndMap.get(endType) ?? '运行结束',
         });
         break;
       default:
         this.handlerError({
           code: "Unknown",
           type: "task",
-          reason: "未知错误",
+          reason: StatusEndMap.get(endType) ?? '运行结束',
         });
         break;
     }
