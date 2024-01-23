@@ -1,15 +1,18 @@
 <script lang="ts">
-  export let loadingBarImage: string | HTMLImageElement;
-  import LoadingBar from "../icons/loading-bar.svelte";
+  export let loadingBarImage: string | HTMLImageElement
+  export let showLoadingBarLogo: boolean
+  import LoadingBar from '../icons/loading-bar.svelte'
 </script>
 
 <div class="bar-container">
-  {#if loadingBarImage instanceof HTMLImageElement}
-    {loadingBarImage}
-  {:else if loadingBarImage}
-    <img style="width:24px" src={loadingBarImage} alt="loadingBarImage" />
-  {:else}
-    <LoadingBar />
+  {#if showLoadingBarLogo}
+    {#if loadingBarImage instanceof HTMLImageElement}
+      {loadingBarImage}
+    {:else if loadingBarImage}
+      <img style="width:24px" src={loadingBarImage} alt="loadingBarImage" />
+    {:else}
+      <LoadingBar />
+    {/if}
   {/if}
 
   <slot />
@@ -17,7 +20,7 @@
 
 <style>
   .bar-container {
-    position: fixed;
+    position: absolute;
     bottom: 0px;
     height: 80px;
     width: 100%;

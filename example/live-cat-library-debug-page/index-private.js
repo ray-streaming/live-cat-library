@@ -8,8 +8,8 @@ document.querySelector("body").style.height = "100%";
 function bootstrap() {
   let launcherPrivateUI = new LauncherPrivateUI(
     {
-      address: "http://172.16.21.240:8088",
-      appKey: "zrGlwpNf8TxkMOAb",
+      address: "http://172.16.21.199:8080",
+      appKey: "9jh0WuduF72EWt5c",
     },
     hostElement,
     {

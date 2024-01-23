@@ -1,3 +1,5 @@
+import type { Phase } from "live-cat/types/launcher-base";
+import type { ExtendBaseOptions } from "../launcher-private-ui";
 import { iceParse, isTouch } from "../utils";
 import type {
   StatusResponse,
@@ -24,7 +26,7 @@ function stringifyQuery(query: any) {
     .join("&");
 }
 export class Client {
-  constructor(private address: string) {}
+  constructor(private address: string) { }
   async statusPrivate(params: {
     token?: string;
     runningId: number;
@@ -41,15 +43,14 @@ export class Client {
         if (res.result && res.data.coturns) {
           try {
             res.data.coturns = iceParse(res.data.coturns);
-          } catch (_) {}
+          } catch (_) { }
         }
         return res;
       });
   }
   async status(taskId: number, token?: number): Promise<StatusResponse> {
     return fetch(
-      `${this.address}/api/3dcat/application/running/status/${taskId}${
-        !!token ? `?token=${token}` : ""
+      `${this.address}/api/3dcat/application/running/status/${taskId}${!!token ? `?token=${token}` : ""
       }`,
       {
         method: "GET",
@@ -60,7 +61,7 @@ export class Client {
         if (res.result && res.data.coturns) {
           try {
             res.data.coturns = iceParse(res.data.coturns);
-          } catch (_) {}
+          } catch (_) { }
         }
         return res;
       });
@@ -171,14 +172,14 @@ export class Client {
               browserIco,
               logo,
             };
-          } catch (_) {}
+          } catch (_) { }
         }
         return res;
       });
   }
 
   async getPlayerUrlPrivate(
-    params: BaseOptionsType
+    params: ExtendBaseOptions
   ): Promise<CommonResponse<PrivateStartInfo>> {
     const { address, ...currentParams } = params;
     return fetch(`${this.address}/app/playerUrl`, {
@@ -244,7 +245,21 @@ export class Client {
         toolbarLogo,
         loadingImage,
       };
-    } catch (_) {}
+    } catch (_) { }
     return res;
   }
+
+
+  async reportErrorCode(param: { phase: Phase, code?: number, runningId: number, }): Promise<CommonResponse> {
+    const { phase, code, runningId } = param
+    const url = `${this.address}/app/running/status/report`
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ runningId, schedule: phase, abnormalEventDetail: code }),
+    }).then((response) => response.json())
+  }
+
 }
+
+

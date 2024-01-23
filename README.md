@@ -14,15 +14,18 @@
 
 # Features：
 
-- [x] Loading Component
-- [ ] ScreenManager Component
-- [x] AgoraRTCVerify Component
 - [x] LauncherUI
 - [x] LauncherPrivateUI
+- [x] Loading Component
+- [x] ImeSwitchComponent
+- [x] VirtualKeyboardComponent
+- [x] FakeImeInputComponent
+- [x] KeepActiveHelper
+
 
 # Technologies
 
-- live-cat v1.1.5
+- live-cat v1.1.8
 - Svelte v3.57.0
 - Rollup v2.78.0
 - Typescript v4.9.5

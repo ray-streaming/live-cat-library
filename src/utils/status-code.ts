@@ -19,6 +19,9 @@ export const StatusCode = {
   APP_BEEN_DELETED: 1004,
   APPSECRET_NOT_VALID: 1005,
 
+  GPU_TYPE_OFF_SHELF: 1045,
+  APP_PROJECT_ERROR: 1046,
+
   RESOURCES_FULL: 1019,
   no_real_name_verification: 1020,
   app_not_synced: 1035,
@@ -35,9 +38,10 @@ export const StatusCode = {
 };
 
 export const StatusMap = new Map<number, [StatusType, string]>([
+
   [StatusCode.FAIL, [StatusType.NORMAL, "失败"]],
   [
-    StatusCode.RESOURCE_NOT_FOUND,  
+    StatusCode.RESOURCE_NOT_FOUND,
     [StatusType.NORMAL, "平台暂无可用资源，请稍后再试"],
   ],
   [StatusCode.INTERNAL_ERROR, [StatusType.NORMAL, "服务器处理失败"]],
@@ -50,6 +54,9 @@ export const StatusMap = new Map<number, [StatusType, string]>([
   [StatusCode.APP_OFF_SHELF, [StatusType.ACCESS, "应用已下架"]],
   [StatusCode.APP_BEEN_DELETED, [StatusType.ACCESS, "应用已删除"]],
   [StatusCode.APPSECRET_NOT_VALID, [StatusType.ACCESS, "链接未生效"]],
+
+  [StatusCode.GPU_TYPE_OFF_SHELF, [StatusType.SERVER, "应用项目错误"]],
+  [StatusCode.APP_PROJECT_ERROR, [StatusType.SERVER, "应用规格已下架"]],
 
   [
     StatusCode.RESOURCES_FULL,

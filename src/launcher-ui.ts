@@ -4,17 +4,19 @@ import { Client } from "./client";
 import {
   BaseOptionsType,
   InitializeConfigType,
+  KeyboardType,
   Status,
   StatusInterface,
   StatusResponse,
 } from "./client/interface";
-import { LoadingCompoent } from "./loading/loading";
+import { LoadingComponent } from "./loading/loading";
 import type { OnChange } from "./loading/loading";
 
 import {
-  handlerSendAgoraVerfy,
+  handlerSendAgoraVerify,
   isAndroid,
   isIOS,
+  isTouch,
   isWeiXin,
   sleep,
   takeScreenshotUrl,
@@ -26,6 +28,12 @@ import type { ErrorState } from "live-cat/types/launcher-base";
 import { StatusMap } from "./utils/status-code";
 import type { Options as loadingOptions } from "./loading/loading";
 import { AutoRetry, StorageType } from "./utils/auto-retry";
+import { FastTouchSideEffect } from "./utils/helper";
+import { KeepActiveHelper } from "./utils/keek-active-helper";
+import { CheckIceServers } from "./utils/check-ice-server";
+import { VirtualKeyboardComponent } from "./components/virtual-keyboard/virtual-keyboard";
+import { ImeSwitchComponent } from "./components/ime-switch/ime-switch";
+import { FakeImeInputComponent } from "./components/fake-ime-input";
 interface LoadingError {
   code: number | string;
   type: "app" | "task" | "connection" | "reConnection";
@@ -46,6 +54,8 @@ interface ExtendUIOptions {
   onShowUserList: (showCastScreenUsers: boolean) => void;
   onRunningOptions: (opt: OnRunningOptions) => void;
   terminalMultiOpen: boolean;
+  keyboardType: KeyboardType
+  phaseTextMap?: Map<Phase, [number, string]>
 }
 
 type UIOptions = Options & loadingOptions & ExtendUIOptions;
@@ -56,16 +66,18 @@ interface StartClient {
 }
 export class LauncherUI {
   static defaultExtendOptions: ExtendUIOptions = {
-    onChange: () => {},
-    onQueue: () => {},
-    onLoadingError: () => {},
-    onTaskId: () => {},
-    onShowUserList: () => {},
-    onRunningOptions: () => {},
+    onChange: () => { },
+    onQueue: () => { },
+    onLoadingError: () => { },
+    onTaskId: () => { },
+    onShowUserList: () => { },
+    onRunningOptions: () => { },
     terminalMultiOpen: false,
-    ...LoadingCompoent.defaultOptions,
+    keyboardType: KeyboardType.Virtual,
+    phaseTextMap: undefined,
+    ...LoadingComponent.defaultOptions,
   };
-  loading: LoadingCompoent;
+  loading: LoadingComponent;
   launcherBase?: LauncherBase;
 
   private client: Client;
@@ -77,6 +89,9 @@ export class LauncherUI {
   private isReconnectEnabled: boolean = false;
   private offline: boolean = false;
   private tempOption?: InitializeConfigType;
+  private keepActiveHelper?: KeepActiveHelper
+  private virtualKeyboardComponent?: VirtualKeyboardComponent
+  private fakeImeInputComponent?: FakeImeInputComponent
   constructor(
     protected baseOptions: BaseOptionsType,
     protected hostElement: HTMLElement,
@@ -84,9 +99,9 @@ export class LauncherUI {
   ) {
     this.extendUIOptions = { ...LauncherUI.defaultExtendOptions, ...options };
 
-    this.loading = new LoadingCompoent(
+    this.loading = new LoadingComponent(
       this.hostElement,
-      { showDefaultLoading: false },
+      { showDefaultLoading: false, phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
       (cb: OnChange) => {
         this.extendUIOptions.onChange(cb);
       }
@@ -101,7 +116,7 @@ export class LauncherUI {
         this.handlerError({
           code: res.code,
           type: "app",
-          reason: StatusMap.get(res.code as number)![1] ?? res.message,
+          reason: StatusMap.get(res.code as number)?.[1] ?? res.message,
         });
         throw res.code;
       }
@@ -134,32 +149,32 @@ export class LauncherUI {
 
   private handlerRetryAction() {
     const { count } = this.autoRetry.getRetryInfo()!;
-    this.launcherBase?.playerShell.destory();
-    this.launcherBase?.player.destory();
-    this.destory();
+    this.launcherBase?.playerShell.destroy();
+    this.launcherBase?.player.destroy();
+    this.destroy();
 
     //重新loading
-    this.loading = new LoadingCompoent(
+    this.loading = new LoadingComponent(
       this.hostElement,
-      { showDefaultLoading: false },
+      { showDefaultLoading: false, phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
       (cb: OnChange) => {
         this.extendUIOptions.onChange(cb);
       }
     );
     const { loadingImage, verticalLoading, horizontalLoading } =
       this.tempOption!;
-    this.loading.loadingCompoent.loadingImage =
+    this.loading.loadingComponent.loadingImage =
       this.options?.loadingImage || loadingImage!;
 
-    this.loading.loadingCompoent.loadingBgImage = {
+    this.loading.loadingComponent.loadingBgImage = {
       portrait: this.options?.loadingBgImage?.portrait || verticalLoading!,
       landscape: this.options?.loadingBgImage?.landscape || horizontalLoading!,
     };
 
-    this.loading.loadingCompoent.loadingBarImage =
+    this.loading.loadingComponent.loadingBarImage =
       this.options?.loadingImage || loadingImage!;
 
-    this.loading.loadingCompoent.showDefaultLoading =
+    this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
 
     //第一次马上重连
@@ -179,7 +194,7 @@ export class LauncherUI {
     );
     const increaseRetryRes = this.autoRetry.increaseRetryCount();
     if (increaseRetryRes) {
-      this.handlerEntryConnetion();
+      this.handlerEntryConnect();
     } else {
       this.loading.showLoadingText("网络连接异常，请稍后重试", false);
       return;
@@ -200,11 +215,14 @@ export class LauncherUI {
       token,
       isFullScreen,
       openMicrophone,
+      keyboardType,
+      toolbarLogo
     } = data;
     this.tempOption = data;
     document.title = appName;
     this.token = token;
 
+    this.extendUIOptions.keyboardType = this.options?.keyboardType ?? keyboardType
     this.options?.onShowUserList &&
       this.options.onShowUserList(showCastScreenUsers);
 
@@ -223,20 +241,21 @@ export class LauncherUI {
 
       disablePointerManager: this.options?.disablePointerManager ?? true,
       disablePointerLock: this.options?.disablePointerLock ?? true,
+      toolbarLogo: this.options?.toolbarLogo! ?? toolbarLogo,
     };
 
-    this.loading.loadingCompoent.loadingImage =
+    this.loading.loadingComponent.loadingImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.loadingBgImage = {
+    this.loading.loadingComponent.loadingBgImage = {
       portrait: this.options?.loadingBgImage?.portrait ?? verticalLoading!,
       landscape: this.options?.loadingBgImage?.landscape ?? horizontalLoading!,
     };
 
-    this.loading.loadingCompoent.loadingBarImage =
+    this.loading.loadingComponent.loadingBarImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.showDefaultLoading =
+    this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
   }
 
@@ -268,9 +287,32 @@ export class LauncherUI {
     await sleep(200);
     return await this.waitForRunning(taskId);
   };
-
+  private handlerMountIme(ele: HTMLElement) {
+    if (isTouch()) {
+      if (this.extendUIOptions?.keyboardType === KeyboardType.Virtual) {
+        this.virtualKeyboardComponent = new VirtualKeyboardComponent(ele,
+          {
+            width: this.launcherBase?.player.video.clientWidth,
+            height: this.launcherBase?.player.video.clientHeight,
+            onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
+          })
+        this.virtualKeyboardComponent.connect(this.launcherBase?.connection)
+      } else {
+        this.fakeImeInputComponent = new FakeImeInputComponent(ele,
+          {
+            width: this.launcherBase?.player.video.clientWidth,
+            height: this.launcherBase?.player.video.clientHeight,
+            onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
+          })
+        this.fakeImeInputComponent.connect(this.launcherBase?.connection)
+      }
+    } else {
+      new ImeSwitchComponent(ele, { onEvent: (ev) => this.launcherBase?.connection.send(ev, true) }).connect(this.launcherBase?.connection)
+    }
+  }
   private handlerStatusSwitch = (res: StatusInterface): void => {
     let { token = "", signaling, coturns, status, agoraServiceVerify } = res;
+
     switch (status) {
       case Status.Pending:
       case Status.Running:
@@ -285,25 +327,61 @@ export class LauncherUI {
           });
         const isAutoLoadingVideo =
           this.options?.autoLoadingVideo ?? !(isWeiXin() && isIOS());
-        const options = {
+        const options: Partial<Options> = {
           ...this.diffServerAndDiyOptions,
           autoLoadingVideo: isAutoLoadingVideo,
-          startType: this.baseOptions.startType,
+          startType: this.baseOptions.startType!,
+          onRotate: (rotate) => {
+            this.options?.onRotate && this.options.onRotate(rotate)
+            setTimeout(() => {
+              this.virtualKeyboardComponent?.changeSize({
+                width: this.launcherBase?.player.video.clientWidth,
+                height: this.launcherBase?.player.video.clientHeight,
+              })
+              this.fakeImeInputComponent?.changeSize({
+                width: this.launcherBase?.player.video.clientWidth,
+                height: this.launcherBase?.player.video.clientHeight,
+              })
+            }, 200)
+          },
+          onMount: (ele) => {
+            this.options?.onMount && this.options.onMount(ele)
+            this.handlerMountIme(ele)
+          },
           onQuit: () => {
             this.options?.onQuit && this.options.onQuit();
             //主动退出，清除taskId缓存
             this.autoRetry.clearRetryInfo();
           },
-          onPhaseChange: (phase: Phase, deltaTime: number) => {
+          onPhaseChange: (phase, deltaTime) => {
             this.options?.onPhaseChange &&
               this.options.onPhaseChange(phase, deltaTime);
             this.loading.changePhase(phase);
 
+            if (phase === 'loaded-metadata') {
+              this.keepActiveHelper?.resendKeyFrame()
+            }
+            if (phase === 'signaling-connected') {
+              this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
+
+              //check iceServers connection
+              const checkIceServers = new CheckIceServers(() => {
+                this.handlerError({
+                  code: "iceServers-disconnect",
+                  type: "connection",
+                  reason: ErrorStateMap.get("iceServers-disconnect")!,
+                });
+              })
+              this.launcherBase?.connection.event.iceStateChange.on((state) => {
+                checkIceServers.toggleStateChange(state)
+              })
+            }
             if (phase === "data-channel-open" && !isAutoLoadingVideo) {
               autoLoadingVideo.set(false);
               autoLoadingVideoHandler.set(() => {
                 this.launcherBase?.resumeVideoStream();
               });
+              this.keepActiveHelper?.clearResendTimer()
             }
           },
           onPlay: () => {
@@ -315,16 +393,26 @@ export class LauncherUI {
               this.autoRetry.setupCount(1);
             }
             this.loading.destroy();
+
+            //多点触控情况下，快速触摸/抬起将模拟发送鼠标按下
+            if (this.diffServerAndDiyOptions?.openMultiTouch) {
+              new FastTouchSideEffect(this.launcherBase?.player.video!, () => {
+                FastTouchSideEffect.sendMouseLeftButton(
+                  this.launcherBase?.connection!
+                );
+              });
+            }
+            this.keepActiveHelper?.setKeepAlive()
           },
-          onError: (reason: ErrorState) => {
+          onError: (reason) => {
             this.options?.onError && this.options?.onError(reason);
             this.handlerError({
               code: reason, //Launcher error reason as code
               type: "connection",
               reason: ErrorStateMap.get(reason) ?? reason,
             });
-            //todo：may loading destory before emit error
-            this.destory(ErrorStateMap.get(reason) ?? reason);
+            //todo：may loading destroy before emit error
+            this.destroy(ErrorStateMap.get(reason) ?? reason);
           },
         };
 
@@ -336,7 +424,7 @@ export class LauncherUI {
         );
 
         !!agoraServiceVerify &&
-          handlerSendAgoraVerfy(
+          handlerSendAgoraVerify(
             this.launcherBase.connection,
             agoraServiceVerify
           );
@@ -359,7 +447,7 @@ export class LauncherUI {
         this.handlerError({
           code: Status.NoIdle,
           type: "task",
-          reason: "没有空闲节点",
+          reason: "连接已断开",
         });
         break;
       case Status.Stopped:
@@ -383,7 +471,7 @@ export class LauncherUI {
       this.isReconnectEnabled &&
       !this.autoRetry.isEmpty &&
       (err.type !== "connection" ||
-        (err.type === "connection" && isAndroid())) &&
+        (err.type === "connection" && isAndroid() && err.code !== 'iceServers-disconnect')) &&
       err.type !== "task"
     ) {
       //在网络不稳定/断网的情况下，需要对重连进行适配
@@ -417,9 +505,9 @@ export class LauncherUI {
         reason: err.reason,
       });
 
-      this.loading = new LoadingCompoent(
+      this.loading = new LoadingComponent(
         this.hostElement,
-        {},
+        { phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
         (cb: OnChange) => {
           this.extendUIOptions.onChange(cb);
         }
@@ -429,7 +517,7 @@ export class LauncherUI {
       });
       return;
     }
-    this.loading.loadingCompoent.showDefaultLoading = false;
+    this.loading.loadingComponent.showDefaultLoading = false;
     this.loading.showLoadingText(err.reason, false);
     this.extendUIOptions.onLoadingError({
       code: err.code,
@@ -438,7 +526,7 @@ export class LauncherUI {
     });
   }
 
-  handlerEntryConnetion() {
+  handlerEntryConnect() {
     this.autoRetry.handlerSetTimeout(() => {
       this.handlerStart();
     });
@@ -490,7 +578,7 @@ export class LauncherUI {
               this.handlerError({
                 code: res.code,
                 type: "app",
-                reason: StatusMap.get(res.code as number)![1] ?? res.message,
+                reason: StatusMap.get(res.code as number)?.[1] ?? res.message,
               });
               throw res.code;
             }
@@ -513,14 +601,19 @@ export class LauncherUI {
         this.startClient = this.client
           .getPlayerUrl(this.baseOptions)
           .then(async (res) => {
-            if (!res.result) {
-              this.handlerError({
-                code: res.code,
-                type: "app",
-                reason: StatusMap.get(res.code as number)![1] ?? res.message,
-              });
-              throw res.code;
+            try {
+              if (!res.result) {
+                this.handlerError({
+                  code: res.code,
+                  type: "app",
+                  reason: StatusMap.get(res.code as number)?.[1] ?? res.message,
+                });
+                throw res.code;
+              }
+            } catch (error) {
+              console.log('error', error)
             }
+
             return res.data;
           })
           .then((data) => {
@@ -563,7 +656,7 @@ export class LauncherUI {
     }
   }
 
-  destory(
+  destroy(
     text: string = "连接已关闭",
     opt: { videoScreenshot: boolean } = { videoScreenshot: false }
   ) {
@@ -586,6 +679,7 @@ export class LauncherUI {
       });
       this.launcherBase?.player.setUpOverlayElementBg(imageUrl);
     }
-    this.launcherBase?.destory();
+    this.keepActiveHelper?.destroy()
+    this.launcherBase?.destroy();
   }
 }

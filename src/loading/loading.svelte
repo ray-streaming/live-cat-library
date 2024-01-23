@@ -1,29 +1,29 @@
 <svelte:options accessors={true} />
 
 <script lang="ts">
-  import type { Options } from "./loading";
-  import DefaultLoading from "./icons/3dcat-loading.svelte";
-  import EnterButton from "./components/enter-button.svelte";
-  import LoadingImage from "./components/loading-inage.svelte";
-  import LoadingText from "./components/loading-text.svelte";
-  import LoadingBar from "./components/loading-bar.svelte";
-  import Portal from "../components/portal.svelte";
-  import { autoLoadingVideo, windowOrientation } from "../store";
+  import type { Options } from './loading'
+  import DefaultLoading from './icons/3dcat-loading.svelte'
+  import EnterButton from './components/enter-button.svelte'
+  import LoadingImage from './components/loading-inage.svelte'
+  import LoadingText from './components/loading-text.svelte'
+  import LoadingBar from './components/loading-bar.svelte'
+  import Portal from '../components/portal.svelte'
+  import { autoLoadingVideo, windowOrientation } from '../store'
 
-  export let loadingImage: string | HTMLImageElement;
-  export let loadingBgImage: Options["loadingBgImage"];
-  export let loadingBarImage: string | HTMLImageElement;
-  export let showDefaultLoading: boolean;
+  export let host: HTMLElement
+  export let loadingImage: string | HTMLImageElement
+  export let loadingBgImage: Options['loadingBgImage']
+  export let loadingBarImage: string | HTMLImageElement
+  export let showDefaultLoading: boolean
+  export let showLoadingBarLogo: boolean = true
   $: currentLoadingBgImage =
-    $windowOrientation === "landscape"
-      ? loadingBgImage.landscape
-      : loadingBgImage.portrait;
+    $windowOrientation === 'landscape' ? loadingBgImage.landscape : loadingBgImage.portrait
   $: backgroundStyle = !!currentLoadingBgImage
     ? `url(${currentLoadingBgImage}) center center / cover`
-    : "unset";
+    : 'unset'
 </script>
 
-<Portal>
+<Portal {host}>
   <div class="loading-container" style="background:{backgroundStyle}">
     <div
       class="loading-content"
@@ -32,7 +32,7 @@
       "
     >
       {#if !!currentLoadingBgImage}
-        <LoadingBar {loadingBarImage}>
+        <LoadingBar {loadingBarImage} {showLoadingBarLogo}>
           <LoadingText />
         </LoadingBar>
       {:else if loadingImage}

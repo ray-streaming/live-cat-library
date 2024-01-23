@@ -1,4 +1,6 @@
 import type { Connection } from "live-cat";
+import { StatusMap } from "./status-code";
+import type { Phase } from "live-cat/types/launcher-base";
 
 export const isWeiXin = () =>
   navigator.userAgent.includes("miniProgram") ||
@@ -23,15 +25,14 @@ export function isTouch() {
       navigator.userAgent
     ) ||
     (navigator.userAgent.includes("Mac") && "ontouchend" in document) ||
-    "ontouchstart" in document ||
-    matchMedia("(pointer:coarse)").matches
+    "ontouchstart" in document
   );
 }
 export function isAndroid() {
   return (
     navigator.userAgent.indexOf('Android') > -1 ||
     navigator.userAgent.indexOf('Adr') > -1 ||
-    (('ontouchstart' in document || matchMedia('(pointer:coarse)').matches) && !isIOS())
+    (('ontouchstart' in document) && !isIOS())
   )
 }
 export function sleep(ms: number) {
@@ -62,7 +63,7 @@ export function takeScreenshotUrl(
   const dataUrl = canvas.toDataURL();
   return dataUrl;
 }
-export const handlerSendAgoraVerfy = async (
+export const handlerSendAgoraVerify = async (
   content: Connection,
   agoraServiceVerify: string
 ) => {
@@ -73,7 +74,7 @@ export const handlerSendAgoraVerfy = async (
     .then(async (result) => {
       if (!result) {
         await sleep(200);
-        await handlerSendAgoraVerfy(content, agoraServiceVerify);
+        await handlerSendAgoraVerify(content, agoraServiceVerify);
       }
       return result;
     });
@@ -98,7 +99,11 @@ export const rateMapField = new Map<RateLevel, RateMapType>([
   [RateLevel.UHD4K, { label: "蓝光", value: 15000 }],
 ]);
 
-export const handleNormalizeBirate = (defaultBitrate: number) => {
+export const handleNormalizeBitrate = (defaultBitrate: number) => {
   const rateLevel = rateMapField.get(defaultBitrate);
   return rateLevel?.value ?? rateMapField.get(RateLevel.HD)!.value;
 };
+
+export const isIncludesPhaseInReport = (phase: Phase) =>
+  ['initial', 'signaling-connected', 'node-ready', 'end-candidate', 'peer-connection-connected', 'data-channel-open'].includes(phase)
+

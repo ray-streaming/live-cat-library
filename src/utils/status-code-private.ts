@@ -16,3 +16,7 @@ export const StatusMap = new Map([
   ["App.Secret.Error", "访问密钥错误"],
   ["App.Not_Synced", "当前打开的应用未在节点同步！"],
 ]);
+
+export type StatusEndType = 'start_failure' | 'start_aborted'
+
+export const StatusEndMap = new Map<StatusEndType, string>([['start_failure', '应用启动失败'], ['start_aborted', '没有空闲节点']])

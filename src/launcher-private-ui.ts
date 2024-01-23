@@ -1,20 +1,25 @@
-import { LauncherBase } from "live-cat";
+import { LauncherBase, MoveType } from "live-cat";
 import type { Options } from "live-cat/types/launcher-base";
 import { Client } from "./client";
-import type {
+import {
   BaseOptionsType,
   DesignInfo,
+  KeyboardType,
+  LandscapeType,
   PrivateStartInfo,
+  StartType,
   StatusPrivateInterface,
   StatusResponsePrivate,
 } from "./client/interface";
-import { LoadingCompoent } from "./loading/loading";
+import { LoadingComponent } from "./loading/loading";
 import type { OnChange } from "./loading/loading";
 
 import {
-  handleNormalizeBirate,
+  handleNormalizeBitrate,
   isAndroid,
   isIOS,
+  isIncludesPhaseInReport,
+  isTouch,
   isWeiXin,
   sleep,
   takeScreenshotUrl,
@@ -23,10 +28,20 @@ import { autoLoadingVideoHandler, autoLoadingVideo } from "./store";
 import { ErrorStateMap } from "./utils/error-profile";
 import type { Phase } from "live-cat/types/launcher-base";
 import type { ErrorState } from "live-cat/types/launcher-base";
-import { StatusMap } from "./utils/status-code-private";
+import { StatusEndMap, StatusMap } from "./utils/status-code-private";
 import type { Options as loadingOptions } from "./loading/loading";
 import { AutoRetry, StorageType } from "./utils/auto-retry";
 import { PrivateReport } from "./utils/private-report";
+import { FastTouchSideEffect } from "./utils/helper";
+import { LiveStart, LiveStop, LiveURL } from "./utils/extend-adapter";
+import { KeepActiveHelper } from "./utils/keek-active-helper";
+import DisplayModeModal from "./components/display-mode-modal/display-mode-modal.svelte";
+import { displayModeIcon, displayPointerIcon } from "./utils/extend-static-assets";
+import { VirtualKeyboardComponent } from "./components/virtual-keyboard/virtual-keyboard";
+import { FakeImeInputComponent } from "./components/fake-ime-input";
+import { ImeSwitchComponent } from "./components/ime-switch/ime-switch";
+import { HandlerPointerMode } from "./utils/pointer-mode-toggle";
+import { CheckMultiStatus, ReportEvent } from "./utils/check-multi-status";
 
 enum VirtualControlDisplayType {
   HideAll = 0,
@@ -62,26 +77,33 @@ interface ExtendUIOptions {
   onChange: (cb: OnChange) => void;
   // onQueue: (rank: number) => void;//私有云暂无排队功能
   onLoadingError: (err: LoadingError) => void;
-  onRunningId: (taskId: number) => void;
+  onRunningId: (runningId: number) => void;
+  onRemoteConfig: (config: PrivateStartInfo) => void;
   onShowUserList: (showCastScreenUsers: boolean) => void;
   onRunningOptions: (opt: OnRunningOptions) => void;
   terminalMultiOpen: boolean;
+  keyboardType: KeyboardType
+  phaseTextMap?: Map<Phase, [number, string]>
 }
+
+export type ExtendBaseOptions = BaseOptionsType & { onlyRecvInstruction?: boolean }
 
 type UIOptions = Options & ExtendUIOptions & loadingOptions;
 
 export class LauncherPrivateUI {
   static defaultExtendOptions: ExtendUIOptions = {
-    onChange: () => {},
-    // onQueue: () => {},
-    onLoadingError: () => {},
-    onRunningId: () => {},
-    onShowUserList: () => {},
-    onRunningOptions: () => {},
+    onChange: () => { },
+    onLoadingError: () => { },
+    onRunningId: () => { },
+    onShowUserList: () => { },
+    onRemoteConfig: () => { },
+    onRunningOptions: () => { },
     terminalMultiOpen: false,
-    ...LoadingCompoent.defaultOptions,
+    keyboardType: KeyboardType.Virtual,
+    phaseTextMap: undefined,
+    ...LoadingComponent.defaultOptions,
   };
-  loading: LoadingCompoent;
+  loading: LoadingComponent;
   launcherBase?: LauncherBase;
   private location: URL;
   private client: Client;
@@ -95,8 +117,24 @@ export class LauncherPrivateUI {
   private tempOption?: DesignInfo;
   private privateReport?: PrivateReport;
   private token?: string;
+  private runningId?: number
+  private keepActiveHelper?: KeepActiveHelper
+  private displayModeComponent?: DisplayModeModal
+  private handlerPointerMode?: HandlerPointerMode
+  private checkMultiStatus?: CheckMultiStatus
+  private phase?: Phase
+  private virtualKeyboardComponent?: VirtualKeyboardComponent
+  private fakeImeInputComponent?: FakeImeInputComponent
+  private get isAutoLoadingVideo() {
+    return this.options?.autoLoadingVideo ?? !(isWeiXin() && isIOS())
+  }
+
+  // 投屏-观看端(分享)
+  private get isGuest() {
+    return this.baseOptions.startType === StartType.ScreenMode && !this.baseOptions.isCastScreenMaster
+  }
   constructor(
-    protected baseOptions: BaseOptionsType,
+    protected baseOptions: ExtendBaseOptions,
     protected hostElement: HTMLElement,
     protected options?: Partial<UIOptions>
   ) {
@@ -106,9 +144,9 @@ export class LauncherPrivateUI {
     };
     this.location = new URL(this.baseOptions.address);
 
-    this.loading = new LoadingCompoent(
+    this.loading = new LoadingComponent(
       this.hostElement,
-      { showDefaultLoading: false },
+      { showDefaultLoading: false, phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
       (cb: OnChange) => {
         this.extendUIOptions.onChange(cb);
       }
@@ -215,6 +253,7 @@ export class LauncherPrivateUI {
             if (enabledReconnect) {
               this.autoRetry.initializeRetryInfo(runningId);
             }
+            this.runningId = runningId
             this.enabledReconnect = enabledReconnect;
             this.extendUIOptions.onRunningId(runningId);
             return { runningId, enabledReconnect, token: undefined };
@@ -224,6 +263,7 @@ export class LauncherPrivateUI {
         this.startClient = this.client
           .getPlayerUrlPrivate({
             ...this.baseOptions,
+            onlyRecvInstruction: this.baseOptions.onlyRecvInstruction ?? false,
             serverIp: this.location.hostname,
           })
           .then(async (res) => {
@@ -241,6 +281,7 @@ export class LauncherPrivateUI {
             if (enabledReconnect && this.baseOptions.startType === 1) {
               this.autoRetry.initializeRetryInfo(runningId);
             }
+            this.runningId = runningId
             this.enabledReconnect = enabledReconnect;
             this.extendUIOptions.onRunningId(runningId);
             return { token, runningId, enabledReconnect };
@@ -273,32 +314,32 @@ export class LauncherPrivateUI {
 
   private handlerRetryAction() {
     const { count } = this.autoRetry.getRetryInfo()!;
-    this.launcherBase?.playerShell.destory();
-    this.launcherBase?.player.destory();
-    this.destory();
+    this.launcherBase?.playerShell.destroy();
+    this.launcherBase?.player.destroy();
+    this.destroy();
 
     //重新loading
-    this.loading = new LoadingCompoent(
+    this.loading = new LoadingComponent(
       this.hostElement,
-      { showDefaultLoading: false },
+      { showDefaultLoading: false, phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
       (cb: OnChange) => {
         this.extendUIOptions.onChange(cb);
       }
     );
     const { loadingImage, verticalLoading, horizontalLoading } =
       this.tempOption!;
-    this.loading.loadingCompoent.loadingImage =
+    this.loading.loadingComponent.loadingImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.loadingBgImage = {
+    this.loading.loadingComponent.loadingBgImage = {
       portrait: this.options?.loadingBgImage?.portrait ?? verticalLoading!,
       landscape: this.options?.loadingBgImage?.landscape ?? horizontalLoading!,
     };
 
-    this.loading.loadingCompoent.loadingBarImage =
+    this.loading.loadingComponent.loadingBarImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.showDefaultLoading =
+    this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
 
     //第一次马上重连
@@ -318,14 +359,14 @@ export class LauncherPrivateUI {
     );
     const increaseRetryRes = this.autoRetry.increaseRetryCount();
     if (increaseRetryRes) {
-      this.handlerEntryConnetion();
+      this.handlerEntryConnect();
     } else {
       this.loading.showLoadingText("网络连接异常，请稍后重试", false);
       return;
     }
   }
 
-  handlerEntryConnetion() {
+  handlerEntryConnect() {
     this.autoRetry.handlerSetTimeout(() => {
       this.handlerStart();
     });
@@ -357,6 +398,9 @@ export class LauncherPrivateUI {
       defaultBitrate,
       userList,
       needLandscape,
+      landscapeType,
+      keyboardType,
+      openMultiTouch
     } = data;
     keyboardMappingConfig =
       keyboardMappingConfig &&
@@ -368,15 +412,18 @@ export class LauncherPrivateUI {
       : InputHoverButton.Hide;
 
     document.title = appName;
+    this.extendUIOptions.keyboardType = this.options?.keyboardType ?? keyboardType
+    this.extendUIOptions.onRemoteConfig(data)
     this.extendUIOptions.onShowUserList(userList);
 
-    const bitrate = handleNormalizeBirate(
+    const bitrate = handleNormalizeBitrate(
       this.options?.rateLevel ?? defaultBitrate
     );
     this.diffServerAndDiyOptions = {
       ...LauncherBase.defaultOptions,
       ...this.options,
       isFullScreen: this.options?.isFullScreen ?? false,
+      openMultiTouch: this.options?.openMultiTouch ?? openMultiTouch,
       needLandscape: this.options?.needLandscape ?? needLandscape!,
       settingHoverButton: this.options?.settingHoverButton ?? display!,
       keyboardMappingConfig:
@@ -386,8 +433,9 @@ export class LauncherPrivateUI {
       minBitrate: this.options?.minBitrate ?? bitrate,
       maxBitrate: this.options?.maxBitrate ?? bitrate,
       startBitrate: this.options?.startBitrate ?? bitrate,
-      disablePointerManager: this.options?.disablePointerManager ?? true,
-      disablePointerLock: this.options?.disablePointerLock ?? true,
+      disablePointerManager: true,//写死，猫头接替处理这部分逻辑
+      disablePointerLock: true,//写死，猫头接替处理这部分逻辑
+      landscapeType: this.options?.landscapeType ?? landscapeType!,
     };
   }
 
@@ -406,20 +454,45 @@ export class LauncherPrivateUI {
     const { loadingImage, horizontalLoading, verticalLoading, toolbarLogo } =
       data;
     this.toolbarLogo = toolbarLogo;
-    this.loading.loadingCompoent.loadingImage =
+    this.loading.loadingComponent.loadingImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.loadingBgImage = {
+    this.loading.loadingComponent.loadingBgImage = {
       portrait: this.options?.loadingBgImage?.portrait ?? verticalLoading!,
       landscape: this.options?.loadingBgImage?.landscape ?? horizontalLoading!,
     };
 
-    this.loading.loadingCompoent.loadingBarImage =
+    this.loading.loadingComponent.loadingBarImage =
       this.options?.loadingImage ?? loadingImage!;
 
-    this.loading.loadingCompoent.showDefaultLoading =
+    this.loading.loadingComponent.showDefaultLoading =
       this.options?.showDefaultLoading ?? true;
   }
+
+  private handlerMountIme(ele: HTMLElement) {
+    if (isTouch()) {
+      if (this.extendUIOptions?.keyboardType === KeyboardType.Virtual) {
+        this.virtualKeyboardComponent = new VirtualKeyboardComponent(ele,
+          {
+            width: this.launcherBase?.player.video.clientWidth,
+            height: this.launcherBase?.player.video.clientHeight,
+            onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
+          })
+        this.virtualKeyboardComponent.connect(this.launcherBase?.connection)
+      } else {
+        this.fakeImeInputComponent = new FakeImeInputComponent(ele,
+          {
+            width: this.launcherBase?.player.video.clientWidth,
+            height: this.launcherBase?.player.video.clientHeight,
+            onEvent: (ev) => this.launcherBase?.connection.send(ev, true)
+          })
+        this.fakeImeInputComponent.connect(this.launcherBase?.connection)
+      }
+    } else {
+      new ImeSwitchComponent(ele, { onEvent: (ev) => this.launcherBase?.connection.send(ev, true) }).connect(this.launcherBase?.connection)
+    }
+  }
+
   private waitForRunning = async (
     runningId: number,
     token?: string
@@ -432,16 +505,100 @@ export class LauncherPrivateUI {
     if (
       res.data.status === "running" ||
       res.data.status === "failed" ||
-      res.data.status === "stopped"
+      res.data.status === "stopped" ||
+      !res.data.status
     ) {
       return res.data;
     }
     await sleep(200);
     return await this.waitForRunning(runningId, token);
   };
+  private initReportStatus = () => {
+    this.checkMultiStatus = new CheckMultiStatus(
+      new Map([
+        [
+          'signaling_delay',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode({ code: ReportEvent.SignalingDelay, runningId: this.runningId!, phase: this.phase! })
+            },
+          },
+        ],
+        [
+          'signaling_failure',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode({ code: ReportEvent.SignalingFailure, runningId: this.runningId!, phase: this.phase! })
+            },
+          },
+        ],
+        [
+          'ice',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode({ code: ReportEvent.Ice, runningId: this.runningId!, phase: this.phase! })
+            },
+          },
+        ],
+        [
+          'datachannel',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode({ code: ReportEvent.Datachannel, runningId: this.runningId!, phase: this.phase! })
+            },
+          },
+        ],
+        [
+          'peer_connection',
+          {
+            callback: () => {
+              !this.isGuest &&
+                this.client.reportErrorCode({ code: ReportEvent.PeerConnection, runningId: this.runningId!, phase: this.phase! })
+            },
+          },
+        ],
+      ]),
+    )
+  }
+  private handlerExtendActionInPhaseChange = (phase: Phase) => {
+    if (phase === 'loaded-metadata') {
+      this.keepActiveHelper?.resendKeyFrame()
+    }
+    if (phase === 'signaling-connected') {
+      this.keepActiveHelper = new KeepActiveHelper(this.launcherBase!, this.hostElement)
+      this.handlerPointerMode = new HandlerPointerMode(this.launcherBase?.player.video!, this.launcherBase?.connection!, false)
 
+      this.checkMultiStatus?.toggleStateChange('signaling_delay', 'connected')
+      this.checkMultiStatus?.toggleStateChange('signaling_failure', 'connected')
+      this.launcherBase?.connection.event.iceStateChange.on((state) => {
+        this.checkMultiStatus?.toggleStateChange('ice', state)
+      })
+      this.launcherBase?.connection.event.dataChannelConnected.on(() => {
+        this.checkMultiStatus?.toggleStateChange('datachannel', 'connected')
+      })
+      this.launcherBase?.connection.event.peerConnectionConnected.on(() => {
+        this.checkMultiStatus?.toggleStateChange('peer_connection', 'connected')
+      })
+      this.launcherBase?.connection.event.ready.on(() => {
+        this.checkMultiStatus?.toggleStateChange('datachannel', 'checking')
+        this.checkMultiStatus?.toggleStateChange('peer_connection', 'checking')
+      })
+    }
+
+    if (phase === "streaming-ready" && !this.isAutoLoadingVideo) {
+      autoLoadingVideo.set(false);
+      autoLoadingVideoHandler.set(() => {
+        this.launcherBase?.resumeVideoStream();
+      });
+      this.keepActiveHelper?.clearResendTimer()
+    }
+  }
   private handlerStatusSwitch = (res: StatusPrivateInterface): void => {
-    let { token = "", signaling, coturns, status } = res;
+    let { token = "", signaling, coturns, status, endType } = res;
     const socketProtocol = this.location.protocol === "https:" ? "wss:" : "ws:";
     const host = this.location.host;
     signaling = `${socketProtocol}//${host}`;
@@ -453,31 +610,86 @@ export class LauncherPrivateUI {
           coturns,
           signaling,
         });
-        this.token = token;
-        const isAutoLoadingVideo =
-          this.options?.autoLoadingVideo ?? !(isWeiXin() && isIOS());
 
-        const options = {
+        this.initReportStatus()
+
+        this.token = token;
+        const options: Partial<Options> = {
           ...this.diffServerAndDiyOptions,
-          autoLoadingVideo: isAutoLoadingVideo,
+          autoLoadingVideo: this.isAutoLoadingVideo,
           toolbarLogo: this.options?.toolbarLogo ?? this.toolbarLogo,
           startType: this.baseOptions.startType,
+          toolOption: {
+            extendTools: (this.options?.toolOption?.extendTools ?? []).concat([
+              {
+                icon: displayModeIcon,
+                text: "显示模式",
+                platform: 1,
+                order: 1,
+                onClick: () => {
+                  this.displayModeComponent!.show = true
+                },
+              },
+              {
+                icon: displayPointerIcon,
+                text: '鼠标模式',
+                platform: 1,
+                order: 2,
+                onClick: () => {
+                  this.handlerPointerMode?.toggle(() => {
+                    //TODO：鼠标模式，在观看端无权限时候应该禁止切换
+                    this.launcherBase!.runningState.mouseMoveType = MoveType.Passive
+                  })
+                },
+              },
+            ])
+          },
+          onRotate: (rotate) => {
+            this.options?.onRotate && this.options.onRotate(rotate)
+            setTimeout(() => {
+              this.virtualKeyboardComponent?.changeSize({
+                width: this.launcherBase?.player.video.clientWidth,
+                height: this.launcherBase?.player.video.clientHeight,
+              })
+              this.fakeImeInputComponent?.changeSize({
+                width: this.launcherBase?.player.video.clientWidth,
+                height: this.launcherBase?.player.video.clientHeight,
+              })
+            }, 200)
+          },
+          onMount: (ele) => {
+            this.options?.onMount && this.options.onMount(ele)
+            this.handlerMountIme(ele)
+            if (!isTouch()) {
+              this.displayModeComponent
+                = new DisplayModeModal({
+                  target: ele,
+                  props:
+                  {
+                    show: false,
+                    displayMode: this.diffServerAndDiyOptions?.landscapeType,
+                    changeDisplayMode: (mode: LandscapeType) => { this.launcherBase?.player.handleChangeLandscapeType(mode) }
+                  }
+                })
+            }
+
+          },
           onQuit: () => {
             this.options?.onQuit && this.options.onQuit();
             //主动退出，清除taskId/runningId缓存
             this.autoRetry.clearRetryInfo();
+            this.destroy()
           },
-          onPhaseChange: (phase: Phase, deltaTime: number) => {
+          onPhaseChange: (phase, deltaTime) => {
             this.options?.onPhaseChange &&
               this.options.onPhaseChange(phase, deltaTime);
             this.loading.changePhase(phase);
-
-            if (phase === "streaming-ready" && !isAutoLoadingVideo) {
-              autoLoadingVideo.set(false);
-              autoLoadingVideoHandler.set(() => {
-                this.launcherBase?.resumeVideoStream();
-              });
+            if (isIncludesPhaseInReport(phase)) {
+              this.phase = phase
+              !this.isGuest &&
+                this.client.reportErrorCode({ runningId: this.runningId!, phase: this.phase! })
             }
+            this.handlerExtendActionInPhaseChange(phase)
           },
           onPlay: () => {
             this.options?.onPlay && this.options?.onPlay();
@@ -494,45 +706,73 @@ export class LauncherPrivateUI {
               this.token!,
               this.launcherBase!
             );
+
+            //多点触控情况下，快速触摸/抬起将模拟发送鼠标按下
+            if (this.diffServerAndDiyOptions?.openMultiTouch) {
+              new FastTouchSideEffect(this.launcherBase?.player.video!, () => {
+                FastTouchSideEffect.sendMouseLeftButton(
+                  this.launcherBase?.connection!
+                );
+              });
+            }
+            this.keepActiveHelper?.setKeepAlive()
+            if (!isTouch()) {
+              //Todo:后面需要在live-cat做终端区分，并统一处理
+              //Note:pc端设置显示模式，移动端已在live-cat设置
+              this.launcherBase?.player.handleChangeLandscapeType(this.diffServerAndDiyOptions?.landscapeType!)
+            }
           },
-          onError: (reason: ErrorState) => {
+          onError: (reason) => {
             this.options?.onError && this.options?.onError(reason);
             this.handlerError({
               code: reason, //Launcher error reason as code
               type: "connection",
               reason: ErrorStateMap.get(reason) ?? reason,
             });
-            //todo：may loading destory before emit error
-            this.destory(ErrorStateMap.get(reason) ?? reason);
+            //todo：may loading destroy before emit error
+            this.destroy(ErrorStateMap.get(reason) ?? reason);
           },
         };
 
+        this.checkMultiStatus?.toggleStateChange('signaling_delay', 'checking')
+        this.checkMultiStatus?.toggleStateChange('signaling_failure', 'checking')
+        !this.isGuest &&
+          this.client.reportErrorCode({ runningId: this.runningId!, phase: 'initial' })
         this.launcherBase = new LauncherBase(
           `${signaling}/clientWebsocket/${token}`,
           coturns,
           this.hostElement,
           options
         );
+        try {
+          this.launcherBase.connection.event.disconnect.on(() => {
+            if (!this.checkMultiStatus?.handlerCheckIsStop('signaling_delay')) {
+              this.checkMultiStatus?.handlerEmitCallBack('signaling_delay')
+            }
+          })
+        } catch (error) {
+          console.error(error)
+        }
         break;
       case "failed":
         this.handlerError({
           code: "failed",
           type: "task",
-          reason: "节点资源不足，勿刷新页面，请稍后重新进入",
+          reason: StatusEndMap.get(endType) ?? '运行结束',
         });
         break;
       case "stopped":
         this.handlerError({
           code: "stopped",
           type: "task",
-          reason: "运行结束，勿刷新页面，请重新进入",
+          reason: StatusEndMap.get(endType) ?? '运行结束',
         });
         break;
       default:
         this.handlerError({
           code: "Unknown",
           type: "task",
-          reason: "未知错误",
+          reason: StatusEndMap.get(endType) ?? '运行结束',
         });
         break;
     }
@@ -543,8 +783,8 @@ export class LauncherPrivateUI {
       this.enabledReconnect &&
       !this.autoRetry.isEmpty &&
       (err.type !== "connection" ||
-        (err.type === "connection" && isAndroid())) && //Todo : public cloud to do 
-      err.type !== "task" 
+        (err.type === "connection" && isAndroid())) && //Todo : public cloud to do
+      err.type !== "task"
     ) {
       //在网络不稳定/断网的情况下，需要对重连进行适配
       this.offline = true; //设定为断网
@@ -578,9 +818,9 @@ export class LauncherPrivateUI {
         reason: err.reason,
       });
 
-      this.loading = new LoadingCompoent(
+      this.loading = new LoadingComponent(
         this.hostElement,
-        {},
+        { phaseTextMap: this.extendUIOptions?.phaseTextMap ?? undefined },
         (cb: OnChange) => {
           this.extendUIOptions.onChange(cb);
         }
@@ -591,7 +831,7 @@ export class LauncherPrivateUI {
       return;
     }
 
-    this.loading.loadingCompoent.showDefaultLoading = false;
+    this.loading.loadingComponent.showDefaultLoading = false;
     this.loading.showLoadingText(err.reason, false);
     this.extendUIOptions.onLoadingError({
       code: err.code,
@@ -600,7 +840,17 @@ export class LauncherPrivateUI {
     });
   }
 
-  destory(
+  liveStart(url?: string) {
+    this.launcherBase?.connection.send(new LiveStart(url ?? '').dumps(), true)
+  }
+  liveStop() {
+    this.launcherBase?.connection.send(new LiveStop().dumps(), true)
+  }
+  liveUrl(url: string) {
+    this.launcherBase?.connection.send(new LiveURL(url).dumps(), true)
+  }
+
+  destroy(
     text: string = "连接已关闭",
     opt: { videoScreenshot: boolean } = { videoScreenshot: false }
   ) {
@@ -623,6 +873,7 @@ export class LauncherPrivateUI {
       });
       this.launcherBase?.player.setUpOverlayElementBg(imageUrl);
     }
-    this.launcherBase?.destory();
+    this.keepActiveHelper?.destroy()
+    this.launcherBase?.destroy();
   }
 }
